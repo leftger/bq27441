@@ -1,0 +1,281 @@
+config:
+  default_byte_order: LE
+  register_address_type: u8
+  defmt_feature: defmt-03
+
+# Standard Commands - these are 16-bit registers accessed via I2C
+
+CONTROL:
+  type: register
+  description: Control register (for subcommands)
+  address: 0x00
+  size_bits: 16
+  access: RW
+
+TEMPERATURE:
+  type: register
+  description: Battery temperature in 0.1K units
+  address: 0x02
+  size_bits: 16
+  access: RW
+
+VOLTAGE:
+  type: register
+  description: Battery voltage in mV
+  address: 0x04
+  size_bits: 16
+  access: RO
+
+FLAGS:
+  type: register
+  description: Status flags register
+  address: 0x06
+  size_bits: 16
+  access: RO
+  fields:
+    OT:
+      base: bool
+      start: 15
+      access: RO
+      description: Over-temperature detected
+    UT:
+      base: bool
+      start: 14
+      access: RO
+      description: Under-temperature detected
+    FC:
+      base: bool
+      start: 9
+      access: RO
+      description: Full charge detected
+    CHG:
+      base: bool
+      start: 8
+      access: RO
+      description: Fast charging allowed
+    OCVTAKEN:
+      base: bool
+      start: 7
+      access: RO
+      description: OCV measurement taken
+    ITPOR:
+      base: bool
+      start: 5
+      access: RO
+      description: POR or RESET occurred
+    CFGUPMODE:
+      base: bool
+      start: 4
+      access: RO
+      description: Config update mode active
+    BAT_DET:
+      base: bool
+      start: 3
+      access: RO
+      description: Battery detected
+    SOC1:
+      base: bool
+      start: 2
+      access: RO
+      description: SOC threshold 1 reached
+    SOCF:
+      base: bool
+      start: 1
+      access: RO
+      description: SOC final threshold reached
+    DSG:
+      base: bool
+      start: 0
+      access: RO
+      description: Discharging detected
+
+NOMINAL_AVAILABLE_CAPACITY:
+  type: register
+  description: Uncompensated battery capacity remaining in mAh
+  address: 0x08
+  size_bits: 16
+  access: RO
+
+FULL_AVAILABLE_CAPACITY:
+  type: register
+  description: Uncompensated capacity when fully charged in mAh
+  address: 0x0A
+  size_bits: 16
+  access: RO
+
+REMAINING_CAPACITY:
+  type: register
+  description: Remaining battery capacity in mAh
+  address: 0x0C
+  size_bits: 16
+  access: RO
+
+FULL_CHARGE_CAPACITY:
+  type: register
+  description: Compensated capacity when fully charged in mAh
+  address: 0x0E
+  size_bits: 16
+  access: RO
+
+AVERAGE_CURRENT:
+  type: register
+  description: Average current in mA (signed)
+  address: 0x10
+  size_bits: 16
+  access: RO
+
+STANDBY_CURRENT:
+  type: register
+  description: Standby current in mA (signed)
+  address: 0x12
+  size_bits: 16
+  access: RO
+
+MAX_LOAD_CURRENT:
+  type: register
+  description: Maximum load current in mA (signed)
+  address: 0x14
+  size_bits: 16
+  access: RO
+
+AVERAGE_POWER:
+  type: register
+  description: Average power in mW (signed)
+  address: 0x18
+  size_bits: 16
+  access: RO
+
+STATE_OF_CHARGE:
+  type: register
+  description: State of charge in percent (0-100)
+  address: 0x1C
+  size_bits: 16
+  access: RO
+
+INTERNAL_TEMPERATURE:
+  type: register
+  description: Internal temperature in 0.1K units
+  address: 0x1E
+  size_bits: 16
+  access: RO
+
+STATE_OF_HEALTH:
+  type: register
+  description: State of health (byte 0 = percent, byte 1 = status)
+  address: 0x20
+  size_bits: 16
+  access: RO
+
+REMAINING_CAPACITY_UNFILTERED:
+  type: register
+  description: True remaining capacity in mAh
+  address: 0x28
+  size_bits: 16
+  access: RO
+
+REMAINING_CAPACITY_FILTERED:
+  type: register
+  description: Filtered remaining capacity in mAh
+  address: 0x2A
+  size_bits: 16
+  access: RO
+
+FULL_CHARGE_CAPACITY_UNFILTERED:
+  type: register
+  description: Unfiltered full charge capacity in mAh
+  address: 0x2C
+  size_bits: 16
+  access: RO
+
+FULL_CHARGE_CAPACITY_FILTERED:
+  type: register
+  description: Filtered full charge capacity in mAh
+  address: 0x2E
+  size_bits: 16
+  access: RO
+
+STATE_OF_CHARGE_UNFILTERED:
+  type: register
+  description: True state of charge in percent
+  address: 0x30
+  size_bits: 16
+  access: RO
+
+# Extended Data Commands
+OPCONFIG:
+  type: register
+  description: Operation configuration register
+  address: 0x3A
+  size_bits: 16
+  access: RO
+  fields:
+    BIE:
+      base: bool
+      start: 13
+      access: RO
+      description: Battery insertion enable
+    BI_PU_EN:
+      base: bool
+      start: 12
+      access: RO
+      description: BIN pin pullup enable
+    GPIOPOL:
+      base: bool
+      start: 11
+      access: RO
+      description: GPOUT pin polarity
+    SLEEP:
+      base: bool
+      start: 5
+      access: RO
+      description: Sleep mode enable
+    RMFCC:
+      base: bool
+      start: 4
+      access: RO
+      description: RM updated with FCC on charge termination
+    BATLOWEN:
+      base: bool
+      start: 1
+      access: RO
+      description: BAT_LOW function on GPOUT
+    TEMPS:
+      base: bool
+      start: 0
+      access: RO
+      description: Temperature source (0=internal, 1=host)
+
+DESIGN_CAPACITY:
+  type: register
+  description: Design capacity in mAh
+  address: 0x3C
+  size_bits: 16
+  access: RO
+
+DATA_CLASS:
+  type: register
+  description: Data class selector for block data access
+  address: 0x3E
+  size_bits: 8
+  access: RW
+
+DATA_BLOCK:
+  type: register
+  description: Data block selector (0-31 byte blocks)
+  address: 0x3F
+  size_bits: 8
+  access: RW
+
+BLOCK_DATA_CHECKSUM:
+  type: register
+  description: Checksum of 32-byte data block
+  address: 0x60
+  size_bits: 8
+  access: RW
+
+BLOCK_DATA_CONTROL:
+  type: register
+  description: Block data control (write 0x00 to enable RAM access)
+  address: 0x61
+  size_bits: 8
+  access: RW

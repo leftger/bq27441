@@ -1,0 +1,23 @@
+# Rust build artifacts
+/target
+**/target
+
+# Cargo lock file (not needed for libraries)
+Cargo.lock
+
+# Generated code examples
+generated_example.rs
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Claude Code
+.claude/
+
+# Debug files
+*.pdb
