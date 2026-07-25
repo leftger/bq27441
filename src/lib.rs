@@ -158,9 +158,9 @@ impl<E> From<E> for Error<E> {
 /// Battery chemistry variant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChemId {
-    /// G1A variant (4.2V max charge, CHEM_ID = 0x0128).
+    /// G1A variant (4.2V max charge, `CHEM_ID` = 0x0128).
     G1A = 0x0128,
-    /// G1B variant (4.3V/4.35V max charge, CHEM_ID = 0x0312).
+    /// G1B variant (4.3V/4.35V max charge, `CHEM_ID` = 0x0312).
     G1B = 0x0312,
 }
 
@@ -188,7 +188,12 @@ where
     type Error = I2C::Error;
     type AddressType = u8;
 
-    fn write_register(&mut self, address: Self::AddressType, _size_bits: u32, data: &[u8]) -> Result<(), Self::Error> {
+    fn write_register(
+        &mut self,
+        address: Self::AddressType,
+        _size_bits: u32,
+        data: &[u8],
+    ) -> Result<(), Self::Error> {
         let mut buf = [0u8; 1 + 8];
         buf[0] = address;
         let end = 1 + data.len();
@@ -274,7 +279,8 @@ where
     pub fn control_read(&mut self, cmd: ControlCmd) -> Result<u16, Error<I2C::Error>> {
         // Write subcommand to control register
         let cmd_bytes = (cmd as u16).to_le_bytes();
-        self.device.control()
+        self.device
+            .control()
             .write(|w| *w = field_sets::Control::from(cmd_bytes))
             .map_err(Error::I2c)?;
 
@@ -290,7 +296,8 @@ where
     /// Send a control subcommand (write-only, no response).
     pub fn control_write(&mut self, cmd: ControlCmd) -> Result<(), Error<I2C::Error>> {
         let cmd_bytes = (cmd as u16).to_le_bytes();
-        self.device.control()
+        self.device
+            .control()
             .write(|w| *w = field_sets::Control::from(cmd_bytes))
             .map_err(Error::I2c)
     }
@@ -312,7 +319,7 @@ where
     /// Read temperature in degrees Celsius.
     pub fn temperature_celsius(&mut self) -> Result<f32, Error<I2C::Error>> {
         let raw = self.temperature_raw()?;
-        Ok((raw as f32 * 0.1) - 273.15)
+        Ok((f32::from(raw) * 0.1) - 273.15)
     }
 
     /// Read state of charge (0-100%).
@@ -324,14 +331,22 @@ where
 
     /// Read remaining capacity in mAh.
     pub fn remaining_capacity(&mut self) -> Result<u16, Error<I2C::Error>> {
-        let val = self.device.remaining_capacity().read().map_err(Error::I2c)?;
+        let val = self
+            .device
+            .remaining_capacity()
+            .read()
+            .map_err(Error::I2c)?;
         let bytes: [u8; 2] = val.into();
         Ok(u16::from_le_bytes(bytes))
     }
 
     /// Read full charge capacity in mAh.
     pub fn full_charge_capacity(&mut self) -> Result<u16, Error<I2C::Error>> {
-        let val = self.device.full_charge_capacity().read().map_err(Error::I2c)?;
+        let val = self
+            .device
+            .full_charge_capacity()
+            .read()
+            .map_err(Error::I2c)?;
         let bytes: [u8; 2] = val.into();
         Ok(u16::from_le_bytes(bytes))
     }
@@ -406,11 +421,13 @@ where
     pub fn unseal(&mut self) -> Result<(), Error<I2C::Error>> {
         let key_bytes = UNSEAL_KEY.to_le_bytes();
         // Send key first time
-        self.device.control()
+        self.device
+            .control()
             .write(|w| *w = field_sets::Control::from(key_bytes))
             .map_err(Error::I2c)?;
         // Send key second time
-        self.device.control()
+        self.device
+            .control()
             .write(|w| *w = field_sets::Control::from(key_bytes))
             .map_err(Error::I2c)
     }
@@ -489,11 +506,17 @@ where
     /// Send a control subcommand and read the 2-byte response.
     pub async fn control_read(&mut self, cmd: ControlCmd) -> Result<u16, Error<I2C::Error>> {
         let cmd_bytes = (cmd as u16).to_le_bytes();
-        self.device.control()
+        self.device
+            .control()
             .write_async(|w| *w = field_sets::Control::from(cmd_bytes))
             .await
             .map_err(Error::I2c)?;
-        let result = self.device.control().read_async().await.map_err(Error::I2c)?;
+        let result = self
+            .device
+            .control()
+            .read_async()
+            .await
+            .map_err(Error::I2c)?;
         let bytes: [u8; 2] = result.into();
         Ok(u16::from_le_bytes(bytes))
     }
@@ -501,7 +524,8 @@ where
     /// Send a control subcommand (write-only).
     pub async fn control_write(&mut self, cmd: ControlCmd) -> Result<(), Error<I2C::Error>> {
         let cmd_bytes = (cmd as u16).to_le_bytes();
-        self.device.control()
+        self.device
+            .control()
             .write_async(|w| *w = field_sets::Control::from(cmd_bytes))
             .await
             .map_err(Error::I2c)
@@ -509,14 +533,24 @@ where
 
     /// Read battery voltage in millivolts.
     pub async fn voltage(&mut self) -> Result<u16, Error<I2C::Error>> {
-        let val = self.device.voltage().read_async().await.map_err(Error::I2c)?;
+        let val = self
+            .device
+            .voltage()
+            .read_async()
+            .await
+            .map_err(Error::I2c)?;
         let bytes: [u8; 2] = val.into();
         Ok(u16::from_le_bytes(bytes))
     }
 
     /// Read temperature in 0.1 Kelvin units.
     pub async fn temperature_raw(&mut self) -> Result<u16, Error<I2C::Error>> {
-        let val = self.device.temperature().read_async().await.map_err(Error::I2c)?;
+        let val = self
+            .device
+            .temperature()
+            .read_async()
+            .await
+            .map_err(Error::I2c)?;
         let bytes: [u8; 2] = val.into();
         Ok(u16::from_le_bytes(bytes))
     }
@@ -524,47 +558,77 @@ where
     /// Read temperature in degrees Celsius.
     pub async fn temperature_celsius(&mut self) -> Result<f32, Error<I2C::Error>> {
         let raw = self.temperature_raw().await?;
-        Ok((raw as f32 * 0.1) - 273.15)
+        Ok((f32::from(raw) * 0.1) - 273.15)
     }
 
     /// Read state of charge (0-100%).
     pub async fn state_of_charge(&mut self) -> Result<u16, Error<I2C::Error>> {
-        let val = self.device.state_of_charge().read_async().await.map_err(Error::I2c)?;
+        let val = self
+            .device
+            .state_of_charge()
+            .read_async()
+            .await
+            .map_err(Error::I2c)?;
         let bytes: [u8; 2] = val.into();
         Ok(u16::from_le_bytes(bytes))
     }
 
     /// Read remaining capacity in mAh.
     pub async fn remaining_capacity(&mut self) -> Result<u16, Error<I2C::Error>> {
-        let val = self.device.remaining_capacity().read_async().await.map_err(Error::I2c)?;
+        let val = self
+            .device
+            .remaining_capacity()
+            .read_async()
+            .await
+            .map_err(Error::I2c)?;
         let bytes: [u8; 2] = val.into();
         Ok(u16::from_le_bytes(bytes))
     }
 
     /// Read full charge capacity in mAh.
     pub async fn full_charge_capacity(&mut self) -> Result<u16, Error<I2C::Error>> {
-        let val = self.device.full_charge_capacity().read_async().await.map_err(Error::I2c)?;
+        let val = self
+            .device
+            .full_charge_capacity()
+            .read_async()
+            .await
+            .map_err(Error::I2c)?;
         let bytes: [u8; 2] = val.into();
         Ok(u16::from_le_bytes(bytes))
     }
 
     /// Read average current in mA (signed).
     pub async fn average_current(&mut self) -> Result<i16, Error<I2C::Error>> {
-        let val = self.device.average_current().read_async().await.map_err(Error::I2c)?;
+        let val = self
+            .device
+            .average_current()
+            .read_async()
+            .await
+            .map_err(Error::I2c)?;
         let bytes: [u8; 2] = val.into();
         Ok(i16::from_le_bytes(bytes))
     }
 
     /// Read average power in mW (signed).
     pub async fn average_power(&mut self) -> Result<i16, Error<I2C::Error>> {
-        let val = self.device.average_power().read_async().await.map_err(Error::I2c)?;
+        let val = self
+            .device
+            .average_power()
+            .read_async()
+            .await
+            .map_err(Error::I2c)?;
         let bytes: [u8; 2] = val.into();
         Ok(i16::from_le_bytes(bytes))
     }
 
     /// Read state of health percentage.
     pub async fn state_of_health(&mut self) -> Result<u8, Error<I2C::Error>> {
-        let val = self.device.state_of_health().read_async().await.map_err(Error::I2c)?;
+        let val = self
+            .device
+            .state_of_health()
+            .read_async()
+            .await
+            .map_err(Error::I2c)?;
         let bytes: [u8; 2] = val.into();
         Ok(bytes[0])
     }
@@ -617,12 +681,14 @@ where
     pub async fn unseal(&mut self) -> Result<(), Error<I2C::Error>> {
         let key_bytes = UNSEAL_KEY.to_le_bytes();
         // Send key first time
-        self.device.control()
+        self.device
+            .control()
             .write_async(|w| *w = field_sets::Control::from(key_bytes))
             .await
             .map_err(Error::I2c)?;
         // Send key second time
-        self.device.control()
+        self.device
+            .control()
             .write_async(|w| *w = field_sets::Control::from(key_bytes))
             .await
             .map_err(Error::I2c)

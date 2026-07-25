@@ -51,8 +51,8 @@ async fn main(_spawner: Spawner) {
     // PB6 = SCL, PB7 = SDA
     let i2c = I2c::new(
         p.I2C1,
-        p.PB6,  // SCL
-        p.PB7,  // SDA
+        p.PB6, // SCL
+        p.PB7, // SDA
         Irqs,
         p.DMA1_CH0,
         p.DMA1_CH1,
