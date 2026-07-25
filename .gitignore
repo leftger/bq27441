@@ -3,7 +3,6 @@
 **/target
 
 # Cargo lock file (not needed for libraries)
-Cargo.lock
 
 # Generated code examples
 generated_example.rs
