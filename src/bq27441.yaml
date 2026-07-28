@@ -1,6 +1,7 @@
 config:
   default_byte_order: LE
   register_address_type: u8
+  buffer_address_type: u8
   defmt_feature: defmt-03
 
 # Standard Commands - these are 16-bit registers accessed via I2C
@@ -266,6 +267,12 @@ DATA_BLOCK:
   size_bits: 8
   access: RW
 
+BLOCK_DATA:
+  type: buffer
+  description: Data memory block transfer window (0x40-0x5F)
+  address: 0x40
+  access: RW
+
 BLOCK_DATA_CHECKSUM:
   type: register
   description: Checksum of 32-byte data block
@@ -279,3 +286,224 @@ BLOCK_DATA_CONTROL:
   address: 0x61
   size_bits: 8
   access: RW
+
+# Data Memory layouts (subclass block 0x40 window — call select_block() first)
+
+DM_STATE_BLOCK0:
+  type: block
+  address_offset: 0x40
+  description: State subclass (82) block 0 — select DataClass=82, DataBlock=0 first
+  objects:
+    DM_QMAX_CELL_0:
+      type: register
+      address: 0
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+    DM_UPDATE_STATUS:
+      type: register
+      address: 2
+      size_bits: 8
+      access: RW
+      allow_address_overlap: true
+    DM_RESERVE_CAP:
+      type: register
+      address: 3
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+    DM_DESIGN_CAPACITY:
+      type: register
+      address: 10
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+    DM_DESIGN_ENERGY:
+      type: register
+      address: 12
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+    DM_TERMINATE_VOLTAGE:
+      type: register
+      address: 16
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+    DM_TAPER_RATE:
+      type: register
+      address: 27
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+    DM_TAPER_VOLTAGE:
+      type: register
+      address: 29
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+    DM_SLEEP_CURRENT:
+      type: register
+      address: 31
+      size_bits: 8
+      access: RW
+      allow_address_overlap: true
+
+DM_STATE_BLOCK1:
+  type: block
+  address_offset: 0x40
+  description: State subclass (82) block 1 — select DataClass=82, DataBlock=1 first
+  objects:
+    DM_V_AT_CHG_TERM:
+      type: register
+      address: 1
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+    DM_DELTA_VOLTAGE:
+      type: register
+      address: 7
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+
+DM_CURRENT_THRESHOLDS_BLOCK0:
+  type: block
+  address_offset: 0x40
+  description: Current Thresholds subclass (81) block 0
+  objects:
+    DM_DSG_CURRENT:
+      type: register
+      address: 0
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+    DM_CHG_CURRENT:
+      type: register
+      address: 2
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+    DM_QUIT_CURRENT:
+      type: register
+      address: 4
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+
+DM_REGISTERS_BLOCK0:
+  type: block
+  address_offset: 0x40
+  description: Registers subclass (64) block 0
+  objects:
+    DM_OP_CONFIG:
+      type: register
+      address: 0
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+    DM_OP_CONFIG_B:
+      type: register
+      address: 2
+      size_bits: 8
+      access: RW
+      allow_address_overlap: true
+
+DM_SAFETY_BLOCK0:
+  type: block
+  address_offset: 0x40
+  description: Safety subclass (2) block 0
+  objects:
+    DM_OVER_TEMP:
+      type: register
+      address: 0
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+    DM_UNDER_TEMP:
+      type: register
+      address: 2
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+    DM_TEMP_HYS:
+      type: register
+      address: 4
+      size_bits: 8
+      access: RW
+      allow_address_overlap: true
+
+DM_DISCHARGE_BLOCK0:
+  type: block
+  address_offset: 0x40
+  description: Discharge subclass (49) block 0
+  objects:
+    DM_SOC1_SET:
+      type: register
+      address: 0
+      size_bits: 8
+      access: RW
+      allow_address_overlap: true
+    DM_SOC1_CLEAR:
+      type: register
+      address: 1
+      size_bits: 8
+      access: RW
+      allow_address_overlap: true
+    DM_SOCF_SET:
+      type: register
+      address: 2
+      size_bits: 8
+      access: RW
+      allow_address_overlap: true
+    DM_SOCF_CLEAR:
+      type: register
+      address: 3
+      size_bits: 8
+      access: RW
+      allow_address_overlap: true
+
+DM_CHARGE_TERMINATION_BLOCK0:
+  type: block
+  address_offset: 0x40
+  description: Charge Termination subclass (36) block 0
+  objects:
+    DM_TCA_SET:
+      type: register
+      address: 3
+      size_bits: 8
+      access: RW
+      allow_address_overlap: true
+    DM_TCA_CLEAR:
+      type: register
+      address: 4
+      size_bits: 8
+      access: RW
+      allow_address_overlap: true
+    DM_FC_SET:
+      type: register
+      address: 5
+      size_bits: 8
+      access: RW
+      allow_address_overlap: true
+    DM_FC_CLEAR:
+      type: register
+      address: 6
+      size_bits: 8
+      access: RW
+      allow_address_overlap: true
+
+DM_RA_RAM_BLOCK0:
+  type: block
+  address_offset: 0x40
+  description: Ra table subclass (89) block 0
+  objects:
+    DM_RA_ENTRY:
+      type: register
+      address: 0
+      size_bits: 16
+      access: RW
+      allow_address_overlap: true
+      repeat:
+        count: 15
+        stride: 2
