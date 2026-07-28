@@ -1,0 +1,1042 @@
+{
+  "table_of_contents": [
+    {
+      "title": "Achieving The Successful Learning Cycle",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          196.5,
+          122.25
+        ],
+        [
+          558.75,
+          122.25
+        ],
+        [
+          558.75,
+          140.37890625
+        ],
+        [
+          196.5,
+          140.37890625
+        ]
+      ]
+    },
+    {
+      "title": "ABSTRACT",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          291.955078125,
+          192.75
+        ],
+        [
+          349.5,
+          192.75
+        ],
+        [
+          349.5,
+          201.48046875
+        ],
+        [
+          291.955078125,
+          201.48046875
+        ]
+      ]
+    },
+    {
+      "title": "Contents\n1\nIntroduction ....................................\n2\nData Flash Configuration Settings Pertinent to Learning Cycle Completion ....................................\n3\nLearning Cycle ....................................\n4\nLearning Cycle Summary in Graphical Form ....................................\n5\nConclusion ....................................\nList of Figures\n1\nModes of Algorithm Operation ....................................\nLearning Cycle Overview ....................................\n3\nBreakdown of Initial Discharge and Relax....................................\n4\nBreakdown of Charge and Relax ....................................\n5\nBreakdown of Discharge and Relax....................................",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          82.4765625,
+          299.3203125
+        ],
+        [
+          558.75,
+          299.3203125
+        ],
+        [
+          558.75,
+          464.8359375
+        ],
+        [
+          82.4765625,
+          464.8359375
+        ]
+      ]
+    },
+    {
+      "title": "List of Tables",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          290.25,
+          474.75
+        ],
+        [
+          351.75,
+          474.75
+        ],
+        [
+          351.75,
+          483.78515625
+        ],
+        [
+          290.25,
+          483.78515625
+        ]
+      ]
+    },
+    {
+      "title": "1 Introduction",
+      "heading_level": null,
+      "page_id": 0,
+      "polygon": [
+        [
+          52.892578125,
+          506.21484375
+        ],
+        [
+          149.25,
+          506.21484375
+        ],
+        [
+          149.25,
+          516.0
+        ],
+        [
+          52.892578125,
+          516.0
+        ]
+      ]
+    },
+    {
+      "title": "2 Data Flash Configuration Settings Pertinent to Learning Cycle Completion",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          51.3984375,
+          75.796875
+        ],
+        [
+          472.4040222167969,
+          75.796875
+        ],
+        [
+          472.4040222167969,
+          87.46270751953125
+        ],
+        [
+          51.3984375,
+          87.46270751953125
+        ]
+      ]
+    },
+    {
+      "title": "2.1 Design Capacity",
+      "heading_level": null,
+      "page_id": 2,
+      "polygon": [
+        [
+          54.0,
+          455.3626708984375
+        ],
+        [
+          170.630859375,
+          455.3626708984375
+        ],
+        [
+          170.630859375,
+          466.3626708984375
+        ],
+        [
+          54.0,
+          466.3626708984375
+        ]
+      ]
+    },
+    {
+      "title": "2.2 Charge Term Taper Current",
+      "heading_level": null,
+      "page_id": 3,
+      "polygon": [
+        [
+          53.19140625,
+          75.46270751953125
+        ],
+        [
+          228.90234375,
+          75.46270751953125
+        ],
+        [
+          228.90234375,
+          86.625
+        ],
+        [
+          53.19140625,
+          86.625
+        ]
+      ]
+    },
+    {
+      "title": "2.3 Dsg Current Threshold",
+      "heading_level": null,
+      "page_id": 3,
+      "polygon": [
+        [
+          53.19140625,
+          206.46270751953125
+        ],
+        [
+          204.99609375,
+          206.46270751953125
+        ],
+        [
+          204.99609375,
+          217.46270751953125
+        ],
+        [
+          53.19140625,
+          217.46270751953125
+        ]
+      ]
+    },
+    {
+      "title": "2.4 Chg Current Threshold",
+      "heading_level": null,
+      "page_id": 3,
+      "polygon": [
+        [
+          53.7890625,
+          303.9609375
+        ],
+        [
+          204.6479949951172,
+          303.9609375
+        ],
+        [
+          204.6479949951172,
+          315.4626770019531
+        ],
+        [
+          53.7890625,
+          315.4626770019531
+        ]
+      ]
+    },
+    {
+      "title": "2.5 Quit Current",
+      "heading_level": null,
+      "page_id": 3,
+      "polygon": [
+        [
+          54.0,
+          380.4626770019531
+        ],
+        [
+          149.115234375,
+          380.4626770019531
+        ],
+        [
+          149.115234375,
+          391.4626770019531
+        ],
+        [
+          54.0,
+          391.4626770019531
+        ]
+      ]
+    },
+    {
+      "title": "2.6 Term Voltage",
+      "heading_level": null,
+      "page_id": 3,
+      "polygon": [
+        [
+          53.490234375,
+          456.4626770019531
+        ],
+        [
+          153.74798583984375,
+          456.4626770019531
+        ],
+        [
+          153.74798583984375,
+          467.4626770019531
+        ],
+        [
+          53.490234375,
+          467.4626770019531
+        ]
+      ]
+    },
+    {
+      "title": "3 Learning Cycle",
+      "heading_level": null,
+      "page_id": 4,
+      "polygon": [
+        [
+          53.7890625,
+          75.796875
+        ],
+        [
+          162.95700073242188,
+          75.796875
+        ],
+        [
+          162.95700073242188,
+          87.46270751953125
+        ],
+        [
+          53.7890625,
+          87.46270751953125
+        ]
+      ]
+    },
+    {
+      "title": "3.1 Initial Qmax Update Criteria",
+      "heading_level": null,
+      "page_id": 4,
+      "polygon": [
+        [
+          53.19140625,
+          285.3984375
+        ],
+        [
+          228.90234375,
+          285.3984375
+        ],
+        [
+          228.90234375,
+          297.4626770019531
+        ],
+        [
+          53.19140625,
+          297.4626770019531
+        ]
+      ]
+    },
+    {
+      "title": "3.2 Learning Cycle Procedure",
+      "heading_level": null,
+      "page_id": 4,
+      "polygon": [
+        [
+          52.59375,
+          602.7626953125
+        ],
+        [
+          220.58200073242188,
+          602.7626953125
+        ],
+        [
+          220.58200073242188,
+          613.7626953125
+        ],
+        [
+          52.59375,
+          613.7626953125
+        ]
+      ]
+    },
+    {
+      "title": "3.2.1 Discharge Battery to Empty",
+      "heading_level": null,
+      "page_id": 4,
+      "polygon": [
+        [
+          53.7890625,
+          629.7388000488281
+        ],
+        [
+          227.65997314453125,
+          629.7388000488281
+        ],
+        [
+          227.65997314453125,
+          639.7388000488281
+        ],
+        [
+          53.7890625,
+          639.7388000488281
+        ]
+      ]
+    },
+    {
+      "title": "3.2.2 Relax for at least 5 Hours",
+      "heading_level": null,
+      "page_id": 5,
+      "polygon": [
+        [
+          53.7890625,
+          149.2734375
+        ],
+        [
+          217.00999450683594,
+          149.2734375
+        ],
+        [
+          217.00999450683594,
+          160.038818359375
+        ],
+        [
+          53.7890625,
+          160.038818359375
+        ]
+      ]
+    },
+    {
+      "title": "3.2.3 Charge Battery to Full",
+      "heading_level": null,
+      "page_id": 5,
+      "polygon": [
+        [
+          52.892578125,
+          310.53515625
+        ],
+        [
+          200.97000122070312,
+          310.53515625
+        ],
+        [
+          200.97000122070312,
+          321.5387878417969
+        ],
+        [
+          52.892578125,
+          321.5387878417969
+        ]
+      ]
+    },
+    {
+      "title": "3.2.4 Relax for at least 2 Hours",
+      "heading_level": null,
+      "page_id": 5,
+      "polygon": [
+        [
+          51.99609375,
+          438.15234375
+        ],
+        [
+          217.00999450683594,
+          438.15234375
+        ],
+        [
+          217.00999450683594,
+          450.0387878417969
+        ],
+        [
+          51.99609375,
+          450.0387878417969
+        ]
+      ]
+    },
+    {
+      "title": "3.2.5 Discharge Battery to Empty",
+      "heading_level": null,
+      "page_id": 5,
+      "polygon": [
+        [
+          53.7890625,
+          629.96484375
+        ],
+        [
+          227.65997314453125,
+          629.96484375
+        ],
+        [
+          227.65997314453125,
+          640.7388000488281
+        ],
+        [
+          53.7890625,
+          640.7388000488281
+        ]
+      ]
+    },
+    {
+      "title": "3.2.6 Relax for at least 5 Hours",
+      "heading_level": null,
+      "page_id": 6,
+      "polygon": [
+        [
+          53.19140625,
+          74.63671875
+        ],
+        [
+          217.00999450683594,
+          74.63671875
+        ],
+        [
+          217.00999450683594,
+          86.33880615234375
+        ],
+        [
+          53.19140625,
+          86.33880615234375
+        ]
+      ]
+    },
+    {
+      "title": "3.2.7 Generate the Golden Image",
+      "heading_level": null,
+      "page_id": 6,
+      "polygon": [
+        [
+          52.59375,
+          254.84765625
+        ],
+        [
+          226.52001953125,
+          254.84765625
+        ],
+        [
+          226.52001953125,
+          266.038818359375
+        ],
+        [
+          52.59375,
+          266.038818359375
+        ]
+      ]
+    },
+    {
+      "title": "4 Learning Cycle Summary in Graphical Form",
+      "heading_level": null,
+      "page_id": 6,
+      "polygon": [
+        [
+          52.59375,
+          331.8046875
+        ],
+        [
+          314.197998046875,
+          331.8046875
+        ],
+        [
+          314.197998046875,
+          343.06268310546875
+        ],
+        [
+          52.59375,
+          343.06268310546875
+        ]
+      ]
+    },
+    {
+      "title": "5 Conclusion",
+      "heading_level": null,
+      "page_id": 7,
+      "polygon": [
+        [
+          53.490234375,
+          390.19921875
+        ],
+        [
+          143.73800659179688,
+          390.19921875
+        ],
+        [
+          143.73800659179688,
+          401.7626647949219
+        ],
+        [
+          53.490234375,
+          401.7626647949219
+        ]
+      ]
+    },
+    {
+      "title": "IMPORTANT NOTICE FOR TI DESIGN INFORMATION AND RESOURCES",
+      "heading_level": null,
+      "page_id": 9,
+      "polygon": [
+        [
+          149.4140625,
+          75.796875
+        ],
+        [
+          491.72998046875,
+          75.796875
+        ],
+        [
+          491.72998046875,
+          86.33880615234375
+        ],
+        [
+          149.4140625,
+          86.33880615234375
+        ]
+      ]
+    }
+  ],
+  "page_stats": [
+    {
+      "page_id": 0,
+      "text_extraction_method": "surya",
+      "block_counts": [
+        [
+          "Line",
+          63
+        ],
+        [
+          "Span",
+          35
+        ],
+        [
+          "SectionHeader",
+          5
+        ],
+        [
+          "Text",
+          4
+        ],
+        [
+          "PageFooter",
+          4
+        ],
+        [
+          "PageHeader",
+          1
+        ],
+        [
+          "Picture",
+          1
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 1,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          358
+        ],
+        [
+          "Line",
+          15
+        ],
+        [
+          "Text",
+          4
+        ],
+        [
+          "PageFooter",
+          4
+        ],
+        [
+          "Picture",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 2,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          713
+        ],
+        [
+          "Line",
+          38
+        ],
+        [
+          "PageFooter",
+          4
+        ],
+        [
+          "PageHeader",
+          2
+        ],
+        [
+          "SectionHeader",
+          2
+        ],
+        [
+          "Text",
+          2
+        ],
+        [
+          "Reference",
+          2
+        ],
+        [
+          "Picture",
+          1
+        ],
+        [
+          "Figure",
+          1
+        ],
+        [
+          "Caption",
+          1
+        ],
+        [
+          "FigureGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 3,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          1399
+        ],
+        [
+          "Line",
+          49
+        ],
+        [
+          "Text",
+          6
+        ],
+        [
+          "SectionHeader",
+          5
+        ],
+        [
+          "PageFooter",
+          5
+        ],
+        [
+          "PageHeader",
+          2
+        ],
+        [
+          "Picture",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 4,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          1502
+        ],
+        [
+          "Line",
+          55
+        ],
+        [
+          "Text",
+          6
+        ],
+        [
+          "ListItem",
+          6
+        ],
+        [
+          "SectionHeader",
+          4
+        ],
+        [
+          "PageFooter",
+          4
+        ],
+        [
+          "ListGroup",
+          2
+        ],
+        [
+          "Picture",
+          1
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 5,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          1415
+        ],
+        [
+          "Line",
+          54
+        ],
+        [
+          "ListItem",
+          17
+        ],
+        [
+          "PageFooter",
+          5
+        ],
+        [
+          "SectionHeader",
+          4
+        ],
+        [
+          "ListGroup",
+          4
+        ],
+        [
+          "Text",
+          3
+        ],
+        [
+          "Picture",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 6,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          609
+        ],
+        [
+          "Line",
+          25
+        ],
+        [
+          "ListItem",
+          6
+        ],
+        [
+          "PageFooter",
+          4
+        ],
+        [
+          "SectionHeader",
+          3
+        ],
+        [
+          "Reference",
+          3
+        ],
+        [
+          "PageHeader",
+          2
+        ],
+        [
+          "Figure",
+          2
+        ],
+        [
+          "Picture",
+          1
+        ],
+        [
+          "Text",
+          1
+        ],
+        [
+          "Caption",
+          1
+        ],
+        [
+          "FigureGroup",
+          1
+        ],
+        [
+          "ListGroup",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 7,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          950
+        ],
+        [
+          "Line",
+          40
+        ],
+        [
+          "ListItem",
+          11
+        ],
+        [
+          "PageFooter",
+          5
+        ],
+        [
+          "Text",
+          3
+        ],
+        [
+          "Picture",
+          1
+        ],
+        [
+          "Figure",
+          1
+        ],
+        [
+          "SectionHeader",
+          1
+        ],
+        [
+          "ListGroup",
+          1
+        ],
+        [
+          "Reference",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 8,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          165
+        ],
+        [
+          "Line",
+          9
+        ],
+        [
+          "PageFooter",
+          5
+        ],
+        [
+          "Text",
+          3
+        ],
+        [
+          "Picture",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    },
+    {
+      "page_id": 9,
+      "text_extraction_method": "pdftext",
+      "block_counts": [
+        [
+          "Span",
+          1391
+        ],
+        [
+          "Line",
+          43
+        ],
+        [
+          "Text",
+          9
+        ],
+        [
+          "SectionHeader",
+          1
+        ]
+      ],
+      "block_metadata": {
+        "llm_request_count": 0,
+        "llm_error_count": 0,
+        "llm_tokens_used": 0,
+        "previous_text": "",
+        "previous_type": "",
+        "previous_order": 0
+      }
+    }
+  ],
+  "debug_data_path": "debug_data/slua903"
+}
