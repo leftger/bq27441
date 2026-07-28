@@ -1,5 +1,10 @@
 # BQ27441 Rust Driver
 
+[![crates.io](https://img.shields.io/crates/v/bq27441.svg)](https://crates.io/crates/bq27441)
+[![docs.rs](https://img.shields.io/docsrs/bq27441)](https://docs.rs/bq27441)
+[![CI](https://github.com/leftger/bq27441/actions/workflows/ci.yml/badge.svg)](https://github.com/leftger/bq27441/actions/workflows/ci.yml)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
+
 A `no_std` Rust driver for the Texas Instruments BQ27441-G1 battery fuel gauge IC.
 
 ## Features
