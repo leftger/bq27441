@@ -9,11 +9,11 @@ use crate::config::{
     OpConfigB, RaTable, SafetyThresholds, UpdateStatus,
 };
 use crate::data_memory::{
-    i16_field, i16_le, select_block_async, subclass, u16_field, u16_le, u8_le, ConfigUpdateSession,
-    RA_TABLE_LEN, read_design_capacity_async, read_opconfig_async,
+    ConfigUpdateSession, RA_TABLE_LEN, i16_field, i16_le, read_design_capacity_async,
+    read_opconfig_async, select_block_async, subclass, u8_le, u16_field, u16_le,
 };
 use crate::generated::Bq27441Device;
-use crate::{field_sets, Error};
+use crate::{Error, field_sets};
 
 async fn read_ra_table<I, E>(device: &mut Bq27441Device<I>) -> Result<RaTable, Error<E>>
 where
@@ -35,6 +35,10 @@ where
     Ok(RaTable { entries })
 }
 
+// Mirrors `config::BatteryConfig::read_from_device`: reads every Data Memory
+// subclass in one linear pass, so splitting it up would only scatter the
+// field-by-field mapping across several near-identical helpers.
+#[allow(clippy::too_many_lines)]
 pub async fn read_battery_config<I, E>(
     device: &mut Bq27441Device<I>,
 ) -> Result<BatteryConfig, Error<E>>
@@ -237,7 +241,8 @@ where
                 .read_async()
                 .await
                 .map_err(Error::I2c)?,
-        ) as i8,
+        )
+        .cast_signed(),
         tca_clear_pct: u8_le(
             device
                 .dm_charge_termination_block_0()
@@ -245,7 +250,8 @@ where
                 .read_async()
                 .await
                 .map_err(Error::I2c)?,
-        ) as i8,
+        )
+        .cast_signed(),
         fc_set_pct: u8_le(
             device
                 .dm_charge_termination_block_0()
@@ -253,7 +259,8 @@ where
                 .read_async()
                 .await
                 .map_err(Error::I2c)?,
-        ) as i8,
+        )
+        .cast_signed(),
         fc_clear_pct: u8_le(
             device
                 .dm_charge_termination_block_0()
@@ -261,7 +268,8 @@ where
                 .read_async()
                 .await
                 .map_err(Error::I2c)?,
-        ) as i8,
+        )
+        .cast_signed(),
     };
 
     Ok(BatteryConfig {
@@ -284,12 +292,16 @@ where
     })
 }
 
+// Mirrors `config::BatteryConfig::write_to_device`: writes every configured
+// Data Memory subclass in one linear pass.
+#[allow(clippy::too_many_lines)]
 pub async fn apply_battery_config<I, E>(
     device: &mut Bq27441Device<I>,
     config: &BatteryConfig,
 ) -> Result<(), Error<E>>
 where
-    I: AsyncRegisterInterface<AddressType = u8, Error = E> + AsyncBufferInterface<AddressType = u8, Error = E>,
+    I: AsyncRegisterInterface<AddressType = u8, Error = E>
+        + AsyncBufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
     config.validate().map_err(|_| Error::InvalidParam)?;
@@ -301,8 +313,9 @@ where
         .dm_state_block_0()
         .dm_design_capacity()
         .write_async(|register| {
-            *register =
-                field_sets::DmDesignCapacity::from(i16_field(config.design_capacity_mah as i16));
+            *register = field_sets::DmDesignCapacity::from(i16_field(
+                config.design_capacity_mah.cast_signed(),
+            ));
         })
         .await
         .map_err(Error::I2c)?;
@@ -310,7 +323,8 @@ where
         .dm_state_block_0()
         .dm_design_energy()
         .write_async(|register| {
-            *register = field_sets::DmDesignEnergy::from(i16_field(config.design_energy_mwh as i16));
+            *register =
+                field_sets::DmDesignEnergy::from(i16_field(config.design_energy_mwh.cast_signed()));
         })
         .await
         .map_err(Error::I2c)?;
@@ -319,7 +333,7 @@ where
         .dm_terminate_voltage()
         .write_async(|register| {
             *register = field_sets::DmTerminateVoltage::from(i16_field(
-                config.terminate_voltage_mv as i16,
+                config.terminate_voltage_mv.cast_signed(),
             ));
         })
         .await
@@ -336,7 +350,8 @@ where
         .dm_state_block_0()
         .dm_reserve_cap()
         .write_async(|register| {
-            *register = field_sets::DmReserveCap::from(i16_field(config.reserve_cap_mah as i16));
+            *register =
+                field_sets::DmReserveCap::from(i16_field(config.reserve_cap_mah.cast_signed()));
         })
         .await
         .map_err(Error::I2c)?;
@@ -353,7 +368,7 @@ where
         .dm_taper_voltage()
         .write_async(|register| {
             *register =
-                field_sets::DmTaperVoltage::from(i16_field(config.taper_voltage_mv as i16));
+                field_sets::DmTaperVoltage::from(i16_field(config.taper_voltage_mv.cast_signed()));
         })
         .await
         .map_err(Error::I2c)?;
@@ -361,7 +376,8 @@ where
         .dm_state_block_0()
         .dm_sleep_current()
         .write_async(|register| {
-            *register = field_sets::DmSleepCurrent::from([config.sleep_current_ma as u8]);
+            let sleep_current = u8::try_from(config.sleep_current_ma).unwrap_or(u8::MAX);
+            *register = field_sets::DmSleepCurrent::from([sleep_current]);
         })
         .await
         .map_err(Error::I2c)?;
@@ -373,7 +389,7 @@ where
         .dm_v_at_chg_term()
         .write_async(|register| {
             *register = field_sets::DmVAtChgTerm::from(i16_field(
-                config.charge_termination_voltage_mv as i16,
+                config.charge_termination_voltage_mv.cast_signed(),
             ));
         })
         .await
@@ -419,7 +435,9 @@ where
         device
             .dm_safety_block_0()
             .dm_temp_hys()
-            .write_async(|register| *register = field_sets::DmTempHys::from([safety.temp_hys_deci_c]))
+            .write_async(|register| {
+                *register = field_sets::DmTempHys::from([safety.temp_hys_deci_c]);
+            })
             .await
             .map_err(Error::I2c)?;
         session.mark_block(subclass::SAFETY, 0);
@@ -431,7 +449,9 @@ where
         device
             .dm_discharge_block_0()
             .dm_soc_1_set()
-            .write_async(|register| *register = field_sets::DmSoc1Set::from([discharge.soc1_set_pct]))
+            .write_async(|register| {
+                *register = field_sets::DmSoc1Set::from([discharge.soc1_set_pct]);
+            })
             .await
             .map_err(Error::I2c)?;
         device
@@ -445,7 +465,9 @@ where
         device
             .dm_discharge_block_0()
             .dm_socf_set()
-            .write_async(|register| *register = field_sets::DmSocfSet::from([discharge.socf_set_pct]))
+            .write_async(|register| {
+                *register = field_sets::DmSocfSet::from([discharge.socf_set_pct]);
+            })
             .await
             .map_err(Error::I2c)?;
         device
@@ -465,28 +487,32 @@ where
         device
             .dm_charge_termination_block_0()
             .dm_tca_set()
-            .write_async(|register| *register = field_sets::DmTcaSet::from([charge.tca_set_pct as u8]))
+            .write_async(|register| {
+                *register = field_sets::DmTcaSet::from([charge.tca_set_pct.cast_unsigned()]);
+            })
             .await
             .map_err(Error::I2c)?;
         device
             .dm_charge_termination_block_0()
             .dm_tca_clear()
             .write_async(|register| {
-                *register = field_sets::DmTcaClear::from([charge.tca_clear_pct as u8]);
+                *register = field_sets::DmTcaClear::from([charge.tca_clear_pct.cast_unsigned()]);
             })
             .await
             .map_err(Error::I2c)?;
         device
             .dm_charge_termination_block_0()
             .dm_fc_set()
-            .write_async(|register| *register = field_sets::DmFcSet::from([charge.fc_set_pct as u8]))
+            .write_async(|register| {
+                *register = field_sets::DmFcSet::from([charge.fc_set_pct.cast_unsigned()]);
+            })
             .await
             .map_err(Error::I2c)?;
         device
             .dm_charge_termination_block_0()
             .dm_fc_clear()
             .write_async(|register| {
-                *register = field_sets::DmFcClear::from([charge.fc_clear_pct as u8]);
+                *register = field_sets::DmFcClear::from([charge.fc_clear_pct.cast_unsigned()]);
             })
             .await
             .map_err(Error::I2c)?;
@@ -533,7 +559,7 @@ where
                 .dm_ra_ram_block_0()
                 .dm_ra_entry(index)
                 .write_async(|register| {
-                    *register = field_sets::DmRaEntry::from(i16_field(entry as i16));
+                    *register = field_sets::DmRaEntry::from(i16_field(entry.cast_signed()));
                 })
                 .await
                 .map_err(Error::I2c)?;

@@ -67,10 +67,10 @@
 use core::fmt::Debug;
 
 #[cfg(feature = "async")]
+use device_driver::AsyncBufferInterface;
+#[cfg(feature = "async")]
 use device_driver::AsyncRegisterInterface;
 use device_driver::{BufferInterface, BufferInterfaceError, RegisterInterface};
-#[cfg(feature = "async")]
-use device_driver::AsyncBufferInterface;
 use embedded_hal as hal;
 #[cfg(feature = "async")]
 use embedded_hal_async as hal_async;
@@ -101,19 +101,19 @@ pub use config::{
     SafetyThresholds, UpdateStatus,
 };
 pub use data_memory::{
-    block_checksum, commit_block_checksum, i16_field, i16_le, patch_checksum,
-    select_block, BlockWriteOptions, CHECKSUM_SETTLE_MS, ConfigUpdateSession,
-    DataMemoryBlockId, data_memory_read_block, data_memory_read_subclass,
-    data_memory_write_block, data_memory_write_block_with_options, data_memory_write_subclass,
-    u16_field, u16_le, u8_le, BLOCK_DATA_BASE, BLOCK_SIZE, RA_TABLE_LEN, subclass,
+    BLOCK_DATA_BASE, BLOCK_SIZE, BlockWriteOptions, CHECKSUM_SETTLE_MS, ConfigUpdateSession,
+    DataMemoryBlockId, RA_TABLE_LEN, block_checksum, commit_block_checksum, data_memory_read_block,
+    data_memory_read_subclass, data_memory_write_block, data_memory_write_block_with_options,
+    data_memory_write_subclass, i16_field, i16_le, patch_checksum, select_block, subclass, u8_le,
+    u16_field, u16_le,
 };
-pub use delay::{BusyWait, DelayMs};
 #[cfg(feature = "async")]
 pub use delay::DelayMsAsync;
-pub use golden::{read_block, write_block, DataMemoryBlock, GoldenSnapshot};
+pub use delay::{BusyWait, DelayMs};
+pub use golden::{DataMemoryBlock, GoldenSnapshot, read_block, write_block};
 pub use learning::{
-    learning_progress, qmax_mah, read_delta_voltage, read_qmax_cell_0, read_update_status,
-    LearningProgress,
+    LearningProgress, learning_progress, qmax_mah, read_delta_voltage, read_qmax_cell_0,
+    read_update_status,
 };
 
 /// Default I²C address for BQ27441.
@@ -340,18 +340,11 @@ where
 {
     type AddressType = u8;
 
-    fn read(
-        &mut self,
-        address: Self::AddressType,
-        buf: &mut [u8],
-    ) -> Result<usize, Self::Error> {
+    fn read(&mut self, address: Self::AddressType, buf: &mut [u8]) -> Result<usize, Self::Error> {
         for (index, slot) in buf.iter_mut().enumerate() {
             let mut byte = [0u8];
-            self.read_register(
-                address.wrapping_add(index as u8),
-                8,
-                &mut byte,
-            )?;
+            let offset = u8::try_from(index).unwrap_or(u8::MAX);
+            self.read_register(address.wrapping_add(offset), 8, &mut byte)?;
             *slot = byte[0];
         }
         Ok(buf.len())
@@ -359,11 +352,8 @@ where
 
     fn write(&mut self, address: Self::AddressType, buf: &[u8]) -> Result<usize, Self::Error> {
         for (index, &byte) in buf.iter().enumerate() {
-            self.write_register(
-                address.wrapping_add(index as u8),
-                8,
-                &[byte],
-            )?;
+            let offset = u8::try_from(index).unwrap_or(u8::MAX);
+            self.write_register(address.wrapping_add(offset), 8, &[byte])?;
         }
         Ok(buf.len())
     }
@@ -387,12 +377,9 @@ where
     ) -> Result<usize, Self::Error> {
         for (index, slot) in buf.iter_mut().enumerate() {
             let mut byte = [0u8];
-            self.read_register(
-                address.wrapping_add(index as u8),
-                8,
-                &mut byte,
-            )
-            .await?;
+            let offset = u8::try_from(index).unwrap_or(u8::MAX);
+            self.read_register(address.wrapping_add(offset), 8, &mut byte)
+                .await?;
             *slot = byte[0];
         }
         Ok(buf.len())
@@ -404,12 +391,9 @@ where
         buf: &[u8],
     ) -> Result<usize, Self::Error> {
         for (index, &byte) in buf.iter().enumerate() {
-            self.write_register(
-                address.wrapping_add(index as u8),
-                8,
-                &[byte],
-            )
-            .await?;
+            let offset = u8::try_from(index).unwrap_or(u8::MAX);
+            self.write_register(address.wrapping_add(offset), 8, &[byte])
+                .await?;
         }
         Ok(buf.len())
     }
@@ -662,6 +646,9 @@ where
     }
 
     /// Set host-provided temperature in degrees Celsius when `OpConfig[TEMPS]=1`.
+    // Rust's `as` cast from float to integer saturates at the type's bounds and
+    // maps NaN to 0, so out-of-range input clamps rather than wrapping.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     pub fn set_temperature_celsius(&mut self, celsius: f32) -> Result<(), Error<I2C::Error>> {
         let raw = ((celsius + 273.15) * 10.0) as u16;
         self.set_temperature_raw(raw)
@@ -726,9 +713,12 @@ where
     pub fn learning_progress(&mut self) -> Result<LearningProgress, Error<I2C::Error>> {
         let status = self.control_status()?;
         let sealed = status.sealed();
-        learning::learning_progress(&mut self.device, status, |device| {
-            device.flags().read().map_err(Error::I2c)
-        }, sealed)
+        learning::learning_progress(
+            &mut self.device,
+            status,
+            |device| device.flags().read().map_err(Error::I2c),
+            sealed,
+        )
     }
 
     /// Read Update Status from data memory (device must be unsealed).
@@ -1256,6 +1246,9 @@ where
     }
 
     /// Set host-provided temperature in degrees Celsius when `OpConfig[TEMPS]=1`.
+    // Rust's `as` cast from float to integer saturates at the type's bounds and
+    // maps NaN to 0, so out-of-range input clamps rather than wrapping.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     pub async fn set_temperature_celsius(&mut self, celsius: f32) -> Result<(), Error<I2C::Error>> {
         let raw = ((celsius + 273.15) * 10.0) as u16;
         self.set_temperature_raw(raw).await
@@ -1362,12 +1355,7 @@ where
         snapshot: GoldenSnapshot,
         delay: &mut D,
     ) -> Result<(), Error<I2C::Error>> {
-        let flags = self
-            .device
-            .flags()
-            .read_async()
-            .await
-            .map_err(Error::I2c)?;
+        let flags = self.device.flags().read_async().await.map_err(Error::I2c)?;
         if !flags.cfgupmode() {
             return Err(Error::NotInConfigMode);
         }
@@ -1394,12 +1382,7 @@ where
         block: &DataMemoryBlock,
         delay: &mut D,
     ) -> Result<(), Error<I2C::Error>> {
-        let flags = self
-            .device
-            .flags()
-            .read_async()
-            .await
-            .map_err(Error::I2c)?;
+        let flags = self.device.flags().read_async().await.map_err(Error::I2c)?;
         if !flags.cfgupmode() {
             return Err(Error::NotInConfigMode);
         }
@@ -1420,12 +1403,7 @@ where
         options: BlockWriteOptions,
         delay: &mut D,
     ) -> Result<(), Error<I2C::Error>> {
-        let flags = self
-            .device
-            .flags()
-            .read_async()
-            .await
-            .map_err(Error::I2c)?;
+        let flags = self.device.flags().read_async().await.map_err(Error::I2c)?;
         if !flags.cfgupmode() {
             return Err(Error::NotInConfigMode);
         }
@@ -1464,12 +1442,7 @@ where
         options: BlockWriteOptions,
         delay: &mut D,
     ) -> Result<(), Error<I2C::Error>> {
-        let flags = self
-            .device
-            .flags()
-            .read_async()
-            .await
-            .map_err(Error::I2c)?;
+        let flags = self.device.flags().read_async().await.map_err(Error::I2c)?;
         if !flags.cfgupmode() {
             return Err(Error::NotInConfigMode);
         }

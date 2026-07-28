@@ -5,13 +5,13 @@ use core::fmt::Debug;
 use device_driver::{BufferInterface, RegisterInterface};
 
 use crate::data_memory::{
-    i16_field, i16_le, select_block, subclass, u16_field, u16_le, u8_le, ConfigUpdateSession,
-    RA_TABLE_LEN, read_design_capacity, read_opconfig,
+    ConfigUpdateSession, RA_TABLE_LEN, i16_field, i16_le, read_design_capacity, read_opconfig,
+    select_block, subclass, u8_le, u16_field, u16_le,
 };
-use crate::delay::{BusyWait, DelayMs};
 #[cfg(feature = "async")]
 use crate::delay::DelayMsAsync;
-use crate::{field_sets, Bq27441Device, ChemId, ControlCmd, Error};
+use crate::delay::{BusyWait, DelayMs};
+use crate::{Bq27441Device, ChemId, ControlCmd, Error, field_sets};
 
 /// Default poll interval while waiting for CONFIG UPDATE mode transitions.
 const CONFIG_POLL_INTERVAL_MS: u32 = 10;
@@ -20,20 +20,15 @@ const CONFIG_POLL_INTERVAL_MS: u32 = 10;
 const CONFIG_TIMEOUT_MS: u32 = 1_000;
 
 /// How to leave CONFIG UPDATE mode after applying configuration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum ConfigExit {
     /// Soft reset — exits config and takes an OCV measurement (`Control 0x0042`).
     SoftReset,
     /// Resimulate with updated configuration and refresh SOC (`Control 0x0044`).
+    #[default]
     ExitResim,
     /// Exit without OCV measurement or resimulation (`Control 0x0043`).
     ExitNoResim,
-}
-
-impl Default for ConfigExit {
-    fn default() -> Self {
-        Self::ExitResim
-    }
 }
 
 /// Options for [`Bq27441::configure_battery`] / [`Bq27441Async::configure_battery`].
@@ -288,7 +283,8 @@ impl CurrentThresholds {
         if current_ma == 0 {
             return 0;
         }
-        (u32::from(design_capacity_mah) * 10 / u32::from(current_ma)) as i16
+        let rate = u32::from(design_capacity_mah) * 10 / u32::from(current_ma);
+        i16::try_from(rate).unwrap_or(i16::MAX)
     }
 
     fn validate(self) -> Result<Self, Error<()>> {
@@ -332,7 +328,7 @@ impl OpConfig {
         field_sets::Opconfig::from(self.0.to_le_bytes())
     }
 
-    fn with_register(self, register: field_sets::Opconfig) -> Self {
+    fn with_register(register: field_sets::Opconfig) -> Self {
         Self(u16::from_le_bytes(register.into()))
     }
 
@@ -366,7 +362,7 @@ impl OpConfig {
         self.register().rmfcc()
     }
 
-    /// GPOUT drives BAT_LOW instead of SOC_INT.
+    /// GPOUT drives `BAT_LOW` instead of `SOC_INT`.
     #[must_use]
     pub fn gpout_battery_low(self) -> bool {
         self.register().batlowen()
@@ -381,9 +377,9 @@ impl OpConfig {
     /// Enable battery insertion detection via BIN pin.
     #[must_use]
     pub fn with_battery_insertion_enable(self, enabled: bool) -> Self {
-        self.with_register(set_bit_field(
+        Self::with_register(set_bit_field(
             self.register(),
-            |register| register.bie(),
+            field_sets::Opconfig::bie,
             enabled,
             0x2000,
         ))
@@ -392,9 +388,9 @@ impl OpConfig {
     /// Enable sleep mode.
     #[must_use]
     pub fn with_sleep_enable(self, enabled: bool) -> Self {
-        self.with_register(set_bit_field(
+        Self::with_register(set_bit_field(
             self.register(),
-            |register| register.sleep(),
+            field_sets::Opconfig::sleep,
             enabled,
             0x0020,
         ))
@@ -403,20 +399,20 @@ impl OpConfig {
     /// Select host-provided temperature.
     #[must_use]
     pub fn with_temperature_from_host(self, enabled: bool) -> Self {
-        self.with_register(set_bit_field(
+        Self::with_register(set_bit_field(
             self.register(),
-            |register| register.temps(),
+            field_sets::Opconfig::temps,
             enabled,
             0x0001,
         ))
     }
 
-    /// Select GPOUT BAT_LOW function.
+    /// Select GPOUT `BAT_LOW` function.
     #[must_use]
     pub fn with_gpout_battery_low(self, enabled: bool) -> Self {
-        self.with_register(set_bit_field(
+        Self::with_register(set_bit_field(
             self.register(),
-            |register| register.batlowen(),
+            field_sets::Opconfig::batlowen,
             enabled,
             0x0002,
         ))
@@ -464,18 +460,8 @@ impl SafetyThresholds {
     };
 
     pub(crate) fn validate(self) -> Result<Self, Error<()>> {
-        range_i16(
-            self.over_temp_deci_c,
-            -1200,
-            1200,
-            "over_temp_deci_c",
-        )?;
-        range_i16(
-            self.under_temp_deci_c,
-            -1200,
-            1200,
-            "under_temp_deci_c",
-        )?;
+        range_i16(self.over_temp_deci_c, -1200, 1200, "over_temp_deci_c")?;
+        range_i16(self.under_temp_deci_c, -1200, 1200, "under_temp_deci_c")?;
         range_u8(self.temp_hys_deci_c, 0, 255, "temp_hys_deci_c")?;
         Ok(self)
     }
@@ -558,7 +544,9 @@ impl RaTable {
 
     /// Default Ra table for BQ27441-G1A (TRM Table 6-4).
     pub const G1A_DEFAULT: Self = Self {
-        entries: [102, 102, 99, 107, 72, 59, 62, 63, 53, 47, 60, 70, 140, 369, 588],
+        entries: [
+            102, 102, 99, 107, 72, 59, 62, 63, 53, 47, 60, 70, 140, 369, 588,
+        ],
     };
 
     /// Return chemistry-specific defaults.
@@ -669,12 +657,7 @@ impl BatteryConfig {
 
     /// Validate all fields against TRM min/max ranges.
     pub fn validate(&self) -> Result<(), Error<()>> {
-        range_u16(
-            self.design_capacity_mah,
-            0,
-            8_000,
-            "design_capacity_mah",
-        )?;
+        range_u16(self.design_capacity_mah, 0, 8_000, "design_capacity_mah")?;
         range_u16(self.design_energy_mwh, 0, 32_767, "design_energy_mwh")?;
         range_u16(
             self.terminate_voltage_mv,
@@ -689,7 +672,7 @@ impl BatteryConfig {
             5_000,
             "charge_termination_voltage_mv",
         )?;
-        range_u16(self.sleep_current_ma, 0, 1_000, "sleep_current_ma")?;
+        range_u16(self.sleep_current_ma, 0, 255, "sleep_current_ma")?;
         range_i16(self.taper_rate, 0, 2000, "taper_rate")?;
         range_u16(self.reserve_cap_mah, 0, 9000, "reserve_cap_mah")?;
 
@@ -713,26 +696,64 @@ impl BatteryConfig {
         Ok(())
     }
 
+    // Reads every Data Memory subclass in one linear pass; splitting this up would
+    // only scatter the field-by-field mapping across several near-identical helpers.
+    #[allow(clippy::too_many_lines)]
     fn read_from_device<I, E>(device: &mut Bq27441Device<I>) -> Result<Self, Error<E>>
     where
         I: RegisterInterface<AddressType = u8, Error = E>,
         E: Debug,
     {
         select_block(device, subclass::STATE, 0)?;
-        let design_capacity_mah =
-            u16_le(device.dm_state_block_0().dm_design_capacity().read().map_err(Error::I2c)?);
-        let design_energy_mwh =
-            u16_le(device.dm_state_block_0().dm_design_energy().read().map_err(Error::I2c)?);
-        let terminate_voltage_mv =
-            u16_le(device.dm_state_block_0().dm_terminate_voltage().read().map_err(Error::I2c)?);
-        let taper_voltage_mv =
-            u16_le(device.dm_state_block_0().dm_taper_voltage().read().map_err(Error::I2c)?);
-        let sleep_current_ma =
-            u16::from(u8_le(device.dm_state_block_0().dm_sleep_current().read().map_err(Error::I2c)?));
-        let taper_rate =
-            i16_le(device.dm_state_block_0().dm_taper_rate().read().map_err(Error::I2c)?);
-        let reserve_cap_mah =
-            u16_le(device.dm_state_block_0().dm_reserve_cap().read().map_err(Error::I2c)?);
+        let design_capacity_mah = u16_le(
+            device
+                .dm_state_block_0()
+                .dm_design_capacity()
+                .read()
+                .map_err(Error::I2c)?,
+        );
+        let design_energy_mwh = u16_le(
+            device
+                .dm_state_block_0()
+                .dm_design_energy()
+                .read()
+                .map_err(Error::I2c)?,
+        );
+        let terminate_voltage_mv = u16_le(
+            device
+                .dm_state_block_0()
+                .dm_terminate_voltage()
+                .read()
+                .map_err(Error::I2c)?,
+        );
+        let taper_voltage_mv = u16_le(
+            device
+                .dm_state_block_0()
+                .dm_taper_voltage()
+                .read()
+                .map_err(Error::I2c)?,
+        );
+        let sleep_current_ma = u16::from(u8_le(
+            device
+                .dm_state_block_0()
+                .dm_sleep_current()
+                .read()
+                .map_err(Error::I2c)?,
+        ));
+        let taper_rate = i16_le(
+            device
+                .dm_state_block_0()
+                .dm_taper_rate()
+                .read()
+                .map_err(Error::I2c)?,
+        );
+        let reserve_cap_mah = u16_le(
+            device
+                .dm_state_block_0()
+                .dm_reserve_cap()
+                .read()
+                .map_err(Error::I2c)?,
+        );
         let update_status = UpdateStatus(u8_le(
             device
                 .dm_state_block_0()
@@ -742,12 +763,21 @@ impl BatteryConfig {
         ));
 
         select_block(device, subclass::STATE, 1)?;
-        let charge_termination_voltage_mv =
-            u16_le(device.dm_state_block_1().dm_v_at_chg_term().read().map_err(Error::I2c)?);
+        let charge_termination_voltage_mv = u16_le(
+            device
+                .dm_state_block_1()
+                .dm_v_at_chg_term()
+                .read()
+                .map_err(Error::I2c)?,
+        );
 
         select_block(device, subclass::REGISTERS, 0)?;
         let op_config = OpConfig(u16_le(
-            device.dm_registers_block_0().dm_op_config().read().map_err(Error::I2c)?,
+            device
+                .dm_registers_block_0()
+                .dm_op_config()
+                .read()
+                .map_err(Error::I2c)?,
         ));
         let op_config_b = OpConfigB(u8_le(
             device
@@ -785,7 +815,11 @@ impl BatteryConfig {
         select_block(device, subclass::SAFETY, 0)?;
         let safety = SafetyThresholds {
             over_temp_deci_c: i16_le(
-                device.dm_safety_block_0().dm_over_temp().read().map_err(Error::I2c)?,
+                device
+                    .dm_safety_block_0()
+                    .dm_over_temp()
+                    .read()
+                    .map_err(Error::I2c)?,
             ),
             under_temp_deci_c: i16_le(
                 device
@@ -795,14 +829,22 @@ impl BatteryConfig {
                     .map_err(Error::I2c)?,
             ),
             temp_hys_deci_c: u8_le(
-                device.dm_safety_block_0().dm_temp_hys().read().map_err(Error::I2c)?,
+                device
+                    .dm_safety_block_0()
+                    .dm_temp_hys()
+                    .read()
+                    .map_err(Error::I2c)?,
             ),
         };
 
         select_block(device, subclass::DISCHARGE, 0)?;
         let discharge = DischargeThresholds {
             soc1_set_pct: u8_le(
-                device.dm_discharge_block_0().dm_soc_1_set().read().map_err(Error::I2c)?,
+                device
+                    .dm_discharge_block_0()
+                    .dm_soc_1_set()
+                    .read()
+                    .map_err(Error::I2c)?,
             ),
             soc1_clear_pct: u8_le(
                 device
@@ -812,7 +854,11 @@ impl BatteryConfig {
                     .map_err(Error::I2c)?,
             ),
             socf_set_pct: u8_le(
-                device.dm_discharge_block_0().dm_socf_set().read().map_err(Error::I2c)?,
+                device
+                    .dm_discharge_block_0()
+                    .dm_socf_set()
+                    .read()
+                    .map_err(Error::I2c)?,
             ),
             socf_clear_pct: u8_le(
                 device
@@ -831,28 +877,32 @@ impl BatteryConfig {
                     .dm_tca_set()
                     .read()
                     .map_err(Error::I2c)?,
-            ) as i8,
+            )
+            .cast_signed(),
             tca_clear_pct: u8_le(
                 device
                     .dm_charge_termination_block_0()
                     .dm_tca_clear()
                     .read()
                     .map_err(Error::I2c)?,
-            ) as i8,
+            )
+            .cast_signed(),
             fc_set_pct: u8_le(
                 device
                     .dm_charge_termination_block_0()
                     .dm_fc_set()
                     .read()
                     .map_err(Error::I2c)?,
-            ) as i8,
+            )
+            .cast_signed(),
             fc_clear_pct: u8_le(
                 device
                     .dm_charge_termination_block_0()
                     .dm_fc_clear()
                     .read()
                     .map_err(Error::I2c)?,
-            ) as i8,
+            )
+            .cast_signed(),
         };
 
         Ok(Self {
@@ -877,7 +927,8 @@ impl BatteryConfig {
 
     fn write_to_device<I, E>(self, device: &mut Bq27441Device<I>) -> Result<(), Error<E>>
     where
-        I: RegisterInterface<AddressType = u8, Error = E> + BufferInterface<AddressType = u8, Error = E>,
+        I: RegisterInterface<AddressType = u8, Error = E>
+            + BufferInterface<AddressType = u8, Error = E>,
         E: Debug,
     {
         self.validate().map_err(|_| Error::InvalidParam)?;
@@ -917,19 +968,11 @@ impl BatteryConfig {
 type ValidationResult<T> = Result<T, Error<()>>;
 
 const fn set_bit(value: u16, mask: u16, enabled: bool) -> u16 {
-    if enabled {
-        value | mask
-    } else {
-        value & !mask
-    }
+    if enabled { value | mask } else { value & !mask }
 }
 
 const fn set_bit_u8(value: u8, mask: u8, enabled: bool) -> u8 {
-    if enabled {
-        value | mask
-    } else {
-        value & !mask
-    }
+    if enabled { value | mask } else { value & !mask }
 }
 
 fn set_bit_field(
@@ -995,7 +1038,8 @@ fn write_state_subclass<I, E>(
     session: &mut ConfigUpdateSession,
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
     select_block(device, subclass::STATE, 0)?;
@@ -1003,22 +1047,26 @@ where
         .dm_state_block_0()
         .dm_design_capacity()
         .write(|register| {
-            *register = field_sets::DmDesignCapacity::from(i16_field(config.design_capacity_mah as i16));
+            *register = field_sets::DmDesignCapacity::from(i16_field(
+                config.design_capacity_mah.cast_signed(),
+            ));
         })
         .map_err(Error::I2c)?;
     device
         .dm_state_block_0()
         .dm_design_energy()
         .write(|register| {
-            *register = field_sets::DmDesignEnergy::from(i16_field(config.design_energy_mwh as i16));
+            *register =
+                field_sets::DmDesignEnergy::from(i16_field(config.design_energy_mwh.cast_signed()));
         })
         .map_err(Error::I2c)?;
     device
         .dm_state_block_0()
         .dm_terminate_voltage()
         .write(|register| {
-            *register =
-                field_sets::DmTerminateVoltage::from(i16_field(config.terminate_voltage_mv as i16));
+            *register = field_sets::DmTerminateVoltage::from(i16_field(
+                config.terminate_voltage_mv.cast_signed(),
+            ));
         })
         .map_err(Error::I2c)?;
     if let Some(status) = config.update_status {
@@ -1032,7 +1080,8 @@ where
         .dm_state_block_0()
         .dm_reserve_cap()
         .write(|register| {
-            *register = field_sets::DmReserveCap::from(i16_field(config.reserve_cap_mah as i16));
+            *register =
+                field_sets::DmReserveCap::from(i16_field(config.reserve_cap_mah.cast_signed()));
         })
         .map_err(Error::I2c)?;
     device
@@ -1044,14 +1093,16 @@ where
         .dm_state_block_0()
         .dm_taper_voltage()
         .write(|register| {
-            *register = field_sets::DmTaperVoltage::from(i16_field(config.taper_voltage_mv as i16));
+            *register =
+                field_sets::DmTaperVoltage::from(i16_field(config.taper_voltage_mv.cast_signed()));
         })
         .map_err(Error::I2c)?;
     device
         .dm_state_block_0()
         .dm_sleep_current()
         .write(|register| {
-            *register = field_sets::DmSleepCurrent::from([config.sleep_current_ma as u8]);
+            let sleep_current = u8::try_from(config.sleep_current_ma).unwrap_or(u8::MAX);
+            *register = field_sets::DmSleepCurrent::from([sleep_current]);
         })
         .map_err(Error::I2c)?;
     session.mark_block(subclass::STATE, 0);
@@ -1062,7 +1113,7 @@ where
         .dm_v_at_chg_term()
         .write(|register| {
             *register = field_sets::DmVAtChgTerm::from(i16_field(
-                config.charge_termination_voltage_mv as i16,
+                config.charge_termination_voltage_mv.cast_signed(),
             ));
         })
         .map_err(Error::I2c)?;
@@ -1076,7 +1127,8 @@ fn write_registers_subclass<I, E>(
     session: &mut ConfigUpdateSession,
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
     select_block(device, subclass::REGISTERS, 0)?;
@@ -1100,7 +1152,8 @@ fn write_safety_subclass<I, E>(
     session: &mut ConfigUpdateSession,
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
     select_block(device, subclass::SAFETY, 0)?;
@@ -1133,7 +1186,8 @@ fn write_discharge_subclass<I, E>(
     session: &mut ConfigUpdateSession,
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
     select_block(device, subclass::DISCHARGE, 0)?;
@@ -1171,19 +1225,24 @@ fn write_current_thresholds_subclass<I, E>(
     session: &mut ConfigUpdateSession,
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
     select_block(device, subclass::CURRENT_THRESHOLDS, 0)?;
     device
         .dm_current_thresholds_block_0()
         .dm_dsg_current()
-        .write(|register| *register = field_sets::DmDsgCurrent::from(i16_field(thresholds.dsg_rate)))
+        .write(|register| {
+            *register = field_sets::DmDsgCurrent::from(i16_field(thresholds.dsg_rate));
+        })
         .map_err(Error::I2c)?;
     device
         .dm_current_thresholds_block_0()
         .dm_chg_current()
-        .write(|register| *register = field_sets::DmChgCurrent::from(i16_field(thresholds.chg_rate)))
+        .write(|register| {
+            *register = field_sets::DmChgCurrent::from(i16_field(thresholds.chg_rate));
+        })
         .map_err(Error::I2c)?;
     device
         .dm_current_thresholds_block_0()
@@ -1202,31 +1261,38 @@ fn write_charge_termination_subclass<I, E>(
     session: &mut ConfigUpdateSession,
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
     select_block(device, subclass::CHARGE_TERMINATION, 0)?;
     device
         .dm_charge_termination_block_0()
         .dm_tca_set()
-        .write(|register| *register = field_sets::DmTcaSet::from([charge_cfg.tca_set_pct as u8]))
+        .write(|register| {
+            *register = field_sets::DmTcaSet::from([charge_cfg.tca_set_pct.cast_unsigned()]);
+        })
         .map_err(Error::I2c)?;
     device
         .dm_charge_termination_block_0()
         .dm_tca_clear()
         .write(|register| {
-            *register = field_sets::DmTcaClear::from([charge_cfg.tca_clear_pct as u8]);
+            *register = field_sets::DmTcaClear::from([charge_cfg.tca_clear_pct.cast_unsigned()]);
         })
         .map_err(Error::I2c)?;
     device
         .dm_charge_termination_block_0()
         .dm_fc_set()
-        .write(|register| *register = field_sets::DmFcSet::from([charge_cfg.fc_set_pct as u8]))
+        .write(|register| {
+            *register = field_sets::DmFcSet::from([charge_cfg.fc_set_pct.cast_unsigned()]);
+        })
         .map_err(Error::I2c)?;
     device
         .dm_charge_termination_block_0()
         .dm_fc_clear()
-        .write(|register| *register = field_sets::DmFcClear::from([charge_cfg.fc_clear_pct as u8]))
+        .write(|register| {
+            *register = field_sets::DmFcClear::from([charge_cfg.fc_clear_pct.cast_unsigned()]);
+        })
         .map_err(Error::I2c)?;
     session.mark_block(subclass::CHARGE_TERMINATION, 0);
     Ok(())
@@ -1238,7 +1304,8 @@ fn write_ra_table<I, E>(
     session: &mut ConfigUpdateSession,
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
     select_block(device, subclass::RA_RAM, 0)?;
@@ -1246,7 +1313,9 @@ where
         device
             .dm_ra_ram_block_0()
             .dm_ra_entry(index)
-            .write(|register| *register = field_sets::DmRaEntry::from(i16_field(entry as i16)))
+            .write(|register| {
+                *register = field_sets::DmRaEntry::from(i16_field(entry.cast_signed()));
+            })
             .map_err(Error::I2c)?;
     }
     session.mark_block(subclass::RA_RAM, 0);
@@ -1295,7 +1364,8 @@ fn apply_battery_config<I, E>(
     config: &BatteryConfig,
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
     config.write_to_device(device)
@@ -1316,7 +1386,6 @@ where
 {
     read_opconfig(device).map(|register| OpConfig(u16_le(register)))
 }
-
 
 // Blocking and async driver configuration methods.
 use crate::Bq27441;
@@ -1499,12 +1568,7 @@ where
         &mut self,
         config: &BatteryConfig,
     ) -> Result<(), Error<I2C::Error>> {
-        let flags = self
-            .device
-            .flags()
-            .read_async()
-            .await
-            .map_err(Error::I2c)?;
+        let flags = self.device.flags().read_async().await.map_err(Error::I2c)?;
         if !flags.cfgupmode() {
             return Err(Error::NotInConfigMode);
         }

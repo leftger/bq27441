@@ -16,14 +16,17 @@ impl DelayMs for BusyWait {
 
 #[cfg(feature = "async")]
 /// Async delay used while polling config-mode flags.
+///
+/// This crate is `no_std` and single-threaded by nature, so the missing
+/// `Send` bound that rustc warns about for `async fn` in public traits
+/// doesn't apply here.
+#[allow(async_fn_in_trait)]
 pub trait DelayMsAsync {
     /// Await at least `ms` milliseconds.
-    fn delay_ms(&mut self, ms: u32) -> impl core::future::Future<Output = ()> + '_;
+    async fn delay_ms(&mut self, ms: u32);
 }
 
 #[cfg(feature = "async")]
 impl DelayMsAsync for BusyWait {
-    fn delay_ms(&mut self, _ms: u32) -> impl core::future::Future<Output = ()> + '_ {
-        async move {}
-    }
+    async fn delay_ms(&mut self, _ms: u32) {}
 }
