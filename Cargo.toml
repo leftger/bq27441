@@ -1,6 +1,6 @@
 [package]
 name = "bq27441"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["Gerzain Mata <leftger@gmail.com>"]
 description = "Blocking and async driver for the BQ27441 battery fuel gauge with I2C support"
@@ -8,7 +8,7 @@ readme = "README.md"
 keywords = ["battery", "fuel-gauge", "i2c", "embedded-hal-driver"]
 categories = ["embedded", "hardware-support", "no-std"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/your-repo/bq27441"
+repository = "https://github.com/leftger/bq27441"
 
 [features]
 default = []
