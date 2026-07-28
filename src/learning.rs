@@ -2,17 +2,21 @@
 
 use core::fmt::Debug;
 
-use device_driver::RegisterInterface;
 #[cfg(feature = "async")]
 use device_driver::AsyncRegisterInterface;
+use device_driver::RegisterInterface;
 
+use crate::Error;
 use crate::config::{ControlStatus, LearningPhase, UpdateStatus};
 use crate::data_memory::{i16_le, select_block, subclass, u8_le};
 use crate::generated::Bq27441Device;
-use crate::Error;
 
 /// Snapshot of learning-cycle progress from control status and flags.
+///
+/// Each field mirrors an independent hardware status bit rather than a
+/// mutually-exclusive state, so this isn't a good fit for an enum.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct LearningProgress {
     /// Raw Update Status byte from data memory (`None` when device is sealed).
     pub update_status: Option<u8>,
@@ -77,7 +81,7 @@ where
 #[must_use]
 pub fn qmax_mah(qmax_cell_0: i16, design_capacity_mah: u16) -> u32 {
     let qmax = i32::from(qmax_cell_0) * i32::from(design_capacity_mah);
-    (qmax / 16_384) as u32
+    (qmax / 16_384).cast_unsigned()
 }
 
 /// Read learned Delta Voltage in mV (device must be unsealed).
@@ -129,7 +133,10 @@ where
 
 #[cfg(feature = "async")]
 mod async_ops {
-    use super::*;
+    use super::{
+        AsyncRegisterInterface, Bq27441Device, ControlStatus, Debug, Error, LearningProgress,
+        UpdateStatus, i16_le, subclass, u8_le,
+    };
     use crate::data_memory::select_block_async;
 
     pub async fn read_update_status<I, E>(
@@ -150,9 +157,7 @@ mod async_ops {
         )))
     }
 
-    pub async fn read_qmax_cell_0<I, E>(
-        device: &mut Bq27441Device<I>,
-    ) -> Result<i16, Error<E>>
+    pub async fn read_qmax_cell_0<I, E>(device: &mut Bq27441Device<I>) -> Result<i16, Error<E>>
     where
         I: AsyncRegisterInterface<AddressType = u8, Error = E>,
         E: Debug,
@@ -168,9 +173,7 @@ mod async_ops {
         ))
     }
 
-    pub async fn read_delta_voltage<I, E>(
-        device: &mut Bq27441Device<I>,
-    ) -> Result<i16, Error<E>>
+    pub async fn read_delta_voltage<I, E>(device: &mut Bq27441Device<I>) -> Result<i16, Error<E>>
     where
         I: AsyncRegisterInterface<AddressType = u8, Error = E>,
         E: Debug,
@@ -217,6 +220,5 @@ mod async_ops {
 #[cfg(feature = "async")]
 pub use async_ops::{
     learning_progress as learning_progress_async, read_delta_voltage as read_delta_voltage_async,
-    read_qmax_cell_0 as read_qmax_cell_0_async,
-    read_update_status as read_update_status_async,
+    read_qmax_cell_0 as read_qmax_cell_0_async, read_update_status as read_update_status_async,
 };

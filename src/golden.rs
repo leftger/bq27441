@@ -2,16 +2,14 @@
 
 use core::fmt::Debug;
 
-use device_driver::{BufferInterface, RegisterInterface};
 #[cfg(feature = "async")]
 use device_driver::{AsyncBufferInterface, AsyncRegisterInterface};
+use device_driver::{BufferInterface, RegisterInterface};
 
-use crate::data_memory::{
-    data_memory_read_block, data_memory_write_block, subclass, BLOCK_SIZE,
-};
+use crate::Error;
+use crate::data_memory::{BLOCK_SIZE, data_memory_read_block, data_memory_write_block, subclass};
 use crate::delay::DelayMs;
 use crate::generated::Bq27441Device;
-use crate::Error;
 
 /// A single 32-byte data memory block.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,26 +41,28 @@ impl GoldenSnapshot {
     /// Read golden-file blocks from data memory (device must be unsealed).
     pub fn read<I, E>(device: &mut Bq27441Device<I>) -> Result<Self, Error<E>>
     where
-        I: RegisterInterface<AddressType = u8, Error = E> + BufferInterface<AddressType = u8, Error = E>,
+        I: RegisterInterface<AddressType = u8, Error = E>
+            + BufferInterface<AddressType = u8, Error = E>,
         E: Debug,
     {
         Ok(Self {
             state_block0: data_memory_read_block(device, subclass::STATE, 0)?,
             state_block1: data_memory_read_block(device, subclass::STATE, 1)?,
-            current_thresholds: data_memory_read_block(
-                device,
-                subclass::CURRENT_THRESHOLDS,
-                0,
-            )?,
+            current_thresholds: data_memory_read_block(device, subclass::CURRENT_THRESHOLDS, 0)?,
             registers: data_memory_read_block(device, subclass::REGISTERS, 0)?,
             ra_table: data_memory_read_block(device, subclass::RA_RAM, 0)?,
         })
     }
 
     /// Write golden-file blocks to data memory (device must be in CONFIG UPDATE mode).
-    pub fn write<I, E, D>(self, device: &mut Bq27441Device<I>, delay: &mut D) -> Result<(), Error<E>>
+    pub fn write<I, E, D>(
+        self,
+        device: &mut Bq27441Device<I>,
+        delay: &mut D,
+    ) -> Result<(), Error<E>>
     where
-        I: RegisterInterface<AddressType = u8, Error = E> + BufferInterface<AddressType = u8, Error = E>,
+        I: RegisterInterface<AddressType = u8, Error = E>
+            + BufferInterface<AddressType = u8, Error = E>,
         E: Debug,
         D: DelayMs,
     {
@@ -81,6 +81,7 @@ impl GoldenSnapshot {
     }
 
     /// Iterate over the contained blocks.
+    #[must_use]
     pub fn blocks(&self) -> [DataMemoryBlock; 5] {
         [
             DataMemoryBlock {
@@ -119,7 +120,8 @@ pub fn read_block<I, E>(
     block_index: u8,
 ) -> Result<DataMemoryBlock, Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
     Ok(DataMemoryBlock {
@@ -136,7 +138,8 @@ pub fn write_block<I, E, D>(
     delay: &mut D,
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
     D: DelayMs,
 {
@@ -151,14 +154,15 @@ where
 
 #[cfg(feature = "async")]
 mod async_ops {
-    use super::*;
+    use super::{
+        AsyncBufferInterface, AsyncRegisterInterface, Bq27441Device, DataMemoryBlock, Debug, Error,
+        GoldenSnapshot, subclass,
+    };
     use crate::delay::DelayMsAsync;
 
     impl GoldenSnapshot {
         /// Read golden-file blocks from data memory (device must be unsealed).
-        pub async fn read_async<I, E>(
-            device: &mut Bq27441Device<I>,
-        ) -> Result<Self, Error<E>>
+        pub async fn read_async<I, E>(device: &mut Bq27441Device<I>) -> Result<Self, Error<E>>
         where
             I: AsyncRegisterInterface<AddressType = u8, Error = E>
                 + AsyncBufferInterface<AddressType = u8, Error = E>,

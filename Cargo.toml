@@ -1,6 +1,6 @@
 [package]
 name = "bq27441"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 authors = ["Gerzain Mata <leftger@gmail.com>"]
 description = "Blocking and async driver for the BQ27441 battery fuel gauge with I2C support"

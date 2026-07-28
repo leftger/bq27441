@@ -8,9 +8,9 @@ use core::fmt::Debug;
 use device_driver::RegisterInterface;
 use device_driver::embedded_io;
 
+use crate::Error;
 use crate::delay::DelayMs;
 use crate::generated::{Bq27441Device, field_sets};
-use crate::Error;
 
 /// Delay after writing a block checksum before readback verification (SLUA801 §4.2).
 pub const CHECKSUM_SETTLE_MS: u32 = 10;
@@ -54,7 +54,7 @@ pub mod subclass {
     pub const CHARGE_TERMINATION: u8 = 36;
     /// SOC alert thresholds subclass.
     pub const DISCHARGE: u8 = 49;
-    /// OpConfig / OpConfigB subclass.
+    /// `OpConfig` / `OpConfigB` subclass.
     pub const REGISTERS: u8 = 64;
     /// Current threshold subclass.
     pub const CURRENT_THRESHOLDS: u8 = 81;
@@ -105,8 +105,8 @@ pub fn u16_field(value: u16) -> [u8; 2] {
 /// Compute the block checksum: `255 − (sum of 32 bytes mod 256)`.
 #[must_use]
 pub fn block_checksum(data: &[u8; BLOCK_SIZE]) -> u8 {
-    let sum: u16 = data.iter().map(|&byte| u16::from(byte)).sum();
-    255 - (sum as u8)
+    let sum = data.iter().fold(0u8, |acc, &byte| acc.wrapping_add(byte));
+    255u8.wrapping_sub(sum)
 }
 
 /// Incrementally update a checksum after replacing bytes (TRM §3.1 step 10).
@@ -114,19 +114,15 @@ pub fn block_checksum(data: &[u8; BLOCK_SIZE]) -> u8 {
 pub fn patch_checksum(old_checksum: u8, old_bytes: &[u8], new_bytes: &[u8]) -> u8 {
     debug_assert_eq!(old_bytes.len(), new_bytes.len());
 
-    let mut temp = u16::from(255u8.wrapping_sub(old_checksum));
+    let mut sum = 255u8.wrapping_sub(old_checksum);
     for &byte in old_bytes {
-        temp = temp.wrapping_sub(u16::from(byte));
+        sum = sum.wrapping_sub(byte);
     }
-    temp %= 256;
-
-    let mut new_sum = temp;
     for &byte in new_bytes {
-        new_sum = new_sum.wrapping_add(u16::from(byte));
+        sum = sum.wrapping_add(byte);
     }
-    new_sum %= 256;
 
-    255u8.wrapping_sub(new_sum as u8)
+    255u8.wrapping_sub(sum)
 }
 
 fn map_i2c<E: Debug>(err: E) -> Error<E> {
@@ -173,12 +169,7 @@ where
     I: RegisterInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
-    Ok(u8_le(
-        device
-            .block_data_checksum()
-            .read()
-            .map_err(map_i2c)?,
-    ))
+    Ok(u8_le(device.block_data_checksum().read().map_err(map_i2c)?))
 }
 
 /// Identifies a 32-byte data memory block within a subclass.
@@ -284,7 +275,8 @@ fn write_block_committed<I, E, D>(
     delay: &mut D,
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + device_driver::BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + device_driver::BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
     D: DelayMs,
 {
@@ -306,7 +298,8 @@ where
 
 fn read_block_raw<I, E>(device: &mut Bq27441Device<I>) -> Result<[u8; BLOCK_SIZE], Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + device_driver::BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + device_driver::BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
     let mut block = [0u8; BLOCK_SIZE];
@@ -322,13 +315,11 @@ fn write_block_raw<I, E>(
     data: &[u8; BLOCK_SIZE],
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + device_driver::BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + device_driver::BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
-    device
-        .block_data()
-        .write_all(data)
-        .map_err(map_i2c)
+    device.block_data().write_all(data).map_err(map_i2c)
 }
 
 /// Read a 32-byte Data Memory block.
@@ -338,7 +329,8 @@ pub fn data_memory_read_block<I, E>(
     block_index: u8,
 ) -> Result<[u8; BLOCK_SIZE], Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + device_driver::BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + device_driver::BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
     select_block(device, subclass_id, block_index)?;
@@ -356,7 +348,8 @@ pub fn data_memory_write_block<I, E, D>(
     delay: &mut D,
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + device_driver::BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + device_driver::BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
     D: DelayMs,
 {
@@ -380,7 +373,8 @@ pub fn data_memory_write_block_with_options<I, E, D>(
     delay: &mut D,
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + device_driver::BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + device_driver::BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
     D: DelayMs,
 {
@@ -396,13 +390,15 @@ pub fn data_memory_read_subclass<I, E>(
     data: &mut [u8],
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + device_driver::BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + device_driver::BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
     validate_subclass_len(data.len()).map_err(|_| Error::InvalidParam)?;
 
     for (block_index, chunk) in data.chunks_mut(BLOCK_SIZE).enumerate() {
-        let block = data_memory_read_block(device, subclass_id, block_index as u8)?;
+        let block_index = u8::try_from(block_index).map_err(|_| Error::InvalidParam)?;
+        let block = data_memory_read_block(device, subclass_id, block_index)?;
         chunk.copy_from_slice(&block);
     }
 
@@ -420,23 +416,18 @@ pub fn data_memory_write_subclass<I, E, D>(
     delay: &mut D,
 ) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + device_driver::BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + device_driver::BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
     D: DelayMs,
 {
     validate_subclass_len(data.len()).map_err(|_| Error::InvalidParam)?;
 
     for (block_index, chunk) in data.chunks(BLOCK_SIZE).enumerate() {
+        let block_index = u8::try_from(block_index).map_err(|_| Error::InvalidParam)?;
         let mut block = [0u8; BLOCK_SIZE];
         block.copy_from_slice(chunk);
-        write_block_committed(
-            device,
-            subclass_id,
-            block_index as u8,
-            &block,
-            options,
-            delay,
-        )?;
+        write_block_committed(device, subclass_id, block_index, &block, options, delay)?;
     }
 
     Ok(())
@@ -445,7 +436,8 @@ where
 /// Recompute and write the checksum for the currently selected block.
 pub fn commit_block_checksum<I, E>(device: &mut Bq27441Device<I>) -> Result<(), Error<E>>
 where
-    I: RegisterInterface<AddressType = u8, Error = E> + device_driver::BufferInterface<AddressType = u8, Error = E>,
+    I: RegisterInterface<AddressType = u8, Error = E>
+        + device_driver::BufferInterface<AddressType = u8, Error = E>,
     E: Debug,
 {
     let block = read_block_raw(device)?;
@@ -472,7 +464,11 @@ where
 
 #[cfg(feature = "async")]
 mod async_ops {
-    use super::*;
+    use super::{
+        BLOCK_SIZE, BlockWriteOptions, Bq27441Device, CHECKSUM_SETTLE_MS, ConfigUpdateSession,
+        Debug, Error, block_checksum, field_sets, map_i2c, map_read_exact, u8_le, u16_le,
+        validate_subclass_len,
+    };
     use crate::delay::DelayMsAsync;
     use device_driver::{AsyncBufferInterface, AsyncRegisterInterface};
 
@@ -499,7 +495,8 @@ mod async_ops {
         delay: &mut D,
     ) -> Result<(), Error<E>>
     where
-        I: AsyncRegisterInterface<AddressType = u8, Error = E> + AsyncBufferInterface<AddressType = u8, Error = E>,
+        I: AsyncRegisterInterface<AddressType = u8, Error = E>
+            + AsyncBufferInterface<AddressType = u8, Error = E>,
         E: Debug,
         D: DelayMsAsync,
     {
@@ -572,7 +569,8 @@ mod async_ops {
         device: &mut Bq27441Device<I>,
     ) -> Result<[u8; BLOCK_SIZE], Error<E>>
     where
-        I: AsyncRegisterInterface<AddressType = u8, Error = E> + AsyncBufferInterface<AddressType = u8, Error = E>,
+        I: AsyncRegisterInterface<AddressType = u8, Error = E>
+            + AsyncBufferInterface<AddressType = u8, Error = E>,
         E: Debug,
     {
         let mut block = [0u8; BLOCK_SIZE];
@@ -590,7 +588,8 @@ mod async_ops {
         block_index: u8,
     ) -> Result<[u8; BLOCK_SIZE], Error<E>>
     where
-        I: AsyncRegisterInterface<AddressType = u8, Error = E> + AsyncBufferInterface<AddressType = u8, Error = E>,
+        I: AsyncRegisterInterface<AddressType = u8, Error = E>
+            + AsyncBufferInterface<AddressType = u8, Error = E>,
         E: Debug,
     {
         select_block(device, subclass_id, block_index).await?;
@@ -605,7 +604,8 @@ mod async_ops {
         delay: &mut D,
     ) -> Result<(), Error<E>>
     where
-        I: AsyncRegisterInterface<AddressType = u8, Error = E> + AsyncBufferInterface<AddressType = u8, Error = E>,
+        I: AsyncRegisterInterface<AddressType = u8, Error = E>
+            + AsyncBufferInterface<AddressType = u8, Error = E>,
         E: Debug,
         D: DelayMsAsync,
     {
@@ -629,7 +629,8 @@ mod async_ops {
         delay: &mut D,
     ) -> Result<(), Error<E>>
     where
-        I: AsyncRegisterInterface<AddressType = u8, Error = E> + AsyncBufferInterface<AddressType = u8, Error = E>,
+        I: AsyncRegisterInterface<AddressType = u8, Error = E>
+            + AsyncBufferInterface<AddressType = u8, Error = E>,
         E: Debug,
         D: DelayMsAsync,
     {
@@ -642,13 +643,15 @@ mod async_ops {
         data: &mut [u8],
     ) -> Result<(), Error<E>>
     where
-        I: AsyncRegisterInterface<AddressType = u8, Error = E> + AsyncBufferInterface<AddressType = u8, Error = E>,
+        I: AsyncRegisterInterface<AddressType = u8, Error = E>
+            + AsyncBufferInterface<AddressType = u8, Error = E>,
         E: Debug,
     {
         validate_subclass_len(data.len()).map_err(|_| Error::InvalidParam)?;
 
         for (block_index, chunk) in data.chunks_mut(BLOCK_SIZE).enumerate() {
-            let block = data_memory_read_block(device, subclass_id, block_index as u8).await?;
+            let block_index = u8::try_from(block_index).map_err(|_| Error::InvalidParam)?;
+            let block = data_memory_read_block(device, subclass_id, block_index).await?;
             chunk.copy_from_slice(&block);
         }
 
@@ -663,24 +666,18 @@ mod async_ops {
         delay: &mut D,
     ) -> Result<(), Error<E>>
     where
-        I: AsyncRegisterInterface<AddressType = u8, Error = E> + AsyncBufferInterface<AddressType = u8, Error = E>,
+        I: AsyncRegisterInterface<AddressType = u8, Error = E>
+            + AsyncBufferInterface<AddressType = u8, Error = E>,
         E: Debug,
         D: DelayMsAsync,
     {
         validate_subclass_len(data.len()).map_err(|_| Error::InvalidParam)?;
 
         for (block_index, chunk) in data.chunks(BLOCK_SIZE).enumerate() {
+            let block_index = u8::try_from(block_index).map_err(|_| Error::InvalidParam)?;
             let mut block = [0u8; BLOCK_SIZE];
             block.copy_from_slice(chunk);
-            write_block_committed(
-                device,
-                subclass_id,
-                block_index as u8,
-                &block,
-                options,
-                delay,
-            )
-            .await?;
+            write_block_committed(device, subclass_id, block_index, &block, options, delay).await?;
         }
 
         Ok(())
@@ -688,7 +685,8 @@ mod async_ops {
 
     pub async fn commit_block_checksum<I, E>(device: &mut Bq27441Device<I>) -> Result<(), Error<E>>
     where
-        I: AsyncRegisterInterface<AddressType = u8, Error = E> + AsyncBufferInterface<AddressType = u8, Error = E>,
+        I: AsyncRegisterInterface<AddressType = u8, Error = E>
+            + AsyncBufferInterface<AddressType = u8, Error = E>,
         E: Debug,
     {
         let block = read_block_raw(device).await?;
@@ -705,9 +703,7 @@ mod async_ops {
         device.opconfig().read_async().await.map_err(map_i2c)
     }
 
-    pub async fn read_design_capacity<I, E>(
-        device: &mut Bq27441Device<I>,
-    ) -> Result<u16, Error<E>>
+    pub async fn read_design_capacity<I, E>(device: &mut Bq27441Device<I>) -> Result<u16, Error<E>>
     where
         I: AsyncRegisterInterface<AddressType = u8, Error = E>,
         E: Debug,
@@ -723,7 +719,10 @@ mod async_ops {
 
     impl ConfigUpdateSession {
         /// Commit checksums for every marked block (re-selects each block first).
-        pub async fn commit_all_async<I, E>(self, device: &mut Bq27441Device<I>) -> Result<(), Error<E>>
+        pub async fn commit_all_async<I, E>(
+            self,
+            device: &mut Bq27441Device<I>,
+        ) -> Result<(), Error<E>>
         where
             I: AsyncRegisterInterface<AddressType = u8, Error = E>
                 + AsyncBufferInterface<AddressType = u8, Error = E>,
@@ -745,20 +744,24 @@ pub use async_ops::{
     data_memory_write_block as data_memory_write_block_async,
     data_memory_write_block_with_options as data_memory_write_block_with_options_async,
     data_memory_write_subclass as data_memory_write_subclass_async,
-    read_design_capacity as read_design_capacity_async,
-    read_opconfig as read_opconfig_async,
+    read_design_capacity as read_design_capacity_async, read_opconfig as read_opconfig_async,
     select_block as select_block_async,
 };
 
 #[cfg(test)]
 mod tests {
-    use super::{block_checksum, patch_checksum, validate_subclass_len, ConfigUpdateSession, BLOCK_SIZE};
     use super::subclass;
+    use super::{
+        BLOCK_SIZE, ConfigUpdateSession, block_checksum, patch_checksum, validate_subclass_len,
+    };
 
     #[test]
     fn block_checksum_complements_sum() {
         let block = [0xFFu8; BLOCK_SIZE];
-        let sum: u8 = block.iter().copied().fold(0u8, |acc, byte| acc.wrapping_add(byte));
+        let sum: u8 = block
+            .iter()
+            .copied()
+            .fold(0u8, |acc, byte| acc.wrapping_add(byte));
         assert_eq!(block_checksum(&block), 255u8.wrapping_sub(sum));
     }
 
