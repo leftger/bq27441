@@ -6,18 +6,26 @@ A `no_std` Rust driver for the Texas Instruments BQ27441-G1 battery fuel gauge I
 
 - **I²C Communication**: Full support for blocking and async I²C operations
 - **Comprehensive Battery Monitoring**:
-  - State of Charge (SOC) - 0-100%
+  - State of Charge (SOC) - 0-100% (filtered/unfiltered)
   - Voltage measurements (mV)
   - Current measurements (mA)
   - Temperature readings (°C or 0.1K)
-  - Remaining capacity (mAh)
-  - Full charge capacity (mAh)
+  - Remaining capacity and full charge capacity (mAh, filtered/unfiltered)
   - State of Health (SOH) percentage
   - Average power (mW)
 - **Power Management**: Support for NORMAL, SLEEP, HIBERNATE, and SHUTDOWN modes
-- **Configuration**: Data Memory access for customization
+- **Battery Configuration Workflow**: Typed `BatteryConfig` (design capacity, OpConfig, current
+  thresholds, safety/discharge/charge-termination alarms, Ra table) applied in one call via
+  `configure_battery()`, which drives the full unseal → CONFIG UPDATE → apply → exit → reseal
+  sequence for you
+- **Golden-File Snapshots**: Read/write the calibrated Data Memory block set (`GoldenSnapshot`)
+  used to back up or clone a tuned device
+- **Learning-Cycle Monitoring**: `learning_progress()` and related helpers to track Impedance
+  Track™ Qmax/Ra learning status
+- **Raw Data Memory Access**: Block- and subclass-level read/write escape hatches for anything
+  not covered by the typed config API
 - **Security**: SEALED/UNSEALED modes
-- **YAML-Based Register Definitions**: Uses `device-driver` crate for type-safe register access
+- **YAML-Based Register Definitions**: Uses the `device-driver` crate for type-safe register access
 - **Async Support**: Optional async/await support via `embedded-hal-async`
 - **Embassy Compatible**: Works seamlessly with the Embassy framework
 - **defmt Support**: Optional defmt logging for debugging
@@ -48,7 +56,7 @@ let mut gauge = Bq27441::new(i2c)?;
 let voltage = gauge.voltage()?;              // mV
 let soc = gauge.state_of_charge()?;          // %
 let capacity = gauge.remaining_capacity()?;  // mAh
-let current = gauge.average_current()?;      // mA (signed)
+let current = gauge.average_current()?;     // mA (signed)
 let temp = gauge.temperature_celsius()?;     // °C
 
 // Check charging status
@@ -76,7 +84,44 @@ let soc = gauge.state_of_charge().await?;
 let capacity = gauge.remaining_capacity().await?;
 ```
 
-### Advanced Configuration
+### Configuring a New Battery
+
+`configure_battery()` runs the whole CONFIG UPDATE workflow (unseal, enter config mode, write
+Data Memory, commit checksums, exit, reseal) in one call:
+
+```rust
+use bq27441::{BatteryConfig, ChemId, ConfigureOptions, BusyWait};
+
+let config = BatteryConfig::for_chemistry(ChemId::G1A);
+gauge.configure_battery(&config, ConfigureOptions::default(), &mut BusyWait)?;
+```
+
+Start from `BatteryConfig::G1A_DEFAULT` / `BatteryConfig::G1B_DEFAULT` (or `for_chemistry`) and
+override fields such as `design_capacity_mah`, `current_thresholds`, `safety`, `discharge`,
+`charge_termination`, or `ra_table` as needed. Use `configure_battery_default()` if you don't
+have your own `DelayMs` implementation. For manual control over the sequence, combine `unseal()`,
+`enter_config_mode()`, `apply_battery_config()`, and `exit_config()` yourself.
+
+### Golden-File Snapshots
+
+```rust
+// Back up a calibrated device
+let snapshot = gauge.read_golden_snapshot()?;
+
+// ...later, restore it onto another unit (device must be in CONFIG UPDATE mode)
+gauge.write_golden_snapshot(snapshot, &mut BusyWait)?;
+```
+
+### Learning-Cycle Monitoring
+
+```rust
+let progress = gauge.learning_progress()?;
+if let Some(phase) = progress.phase() {
+    println!("Learning phase: {phase:?}");
+}
+```
+
+### Manual Seal/Config-Mode Control
 
 ```rust
 // Unseal device for configuration
@@ -86,7 +131,8 @@ gauge.unseal()?;
 gauge.enter_config_mode()?;
 
 // Modify configuration via Data Memory
-// (See datasheet for details)
+// (see `configure_battery`/`BatteryConfig` above, or use the raw
+// `read_data_memory_block`/`write_data_memory_block` escape hatches)
 
 // Exit config mode
 gauge.exit_config_mode()?;
@@ -112,33 +158,46 @@ cargo build --example stm32wba65ri_embassy --features embassy --target thumbv8m.
 ### Core Methods
 
 - `voltage()` - Read battery voltage in mV
-- `state_of_charge()` - Read SOC percentage (0-100%)
-- `remaining_capacity()` - Read remaining capacity in mAh
-- `full_charge_capacity()` - Read full charge capacity in mAh
+- `state_of_charge()` / `state_of_charge_unfiltered()` - Read SOC percentage (0-100%)
+- `remaining_capacity()` / `remaining_capacity_unfiltered()` / `remaining_capacity_filtered()` - Remaining capacity in mAh
+- `full_charge_capacity()` / `full_charge_capacity_unfiltered()` / `full_charge_capacity_filtered()` - Full charge capacity in mAh
+- `nominal_available_capacity()` / `full_available_capacity()` - Unfiltered capacity readings in mAh
 - `average_current()` - Read average current in mA (signed)
 - `average_power()` - Read average power in mW (signed)
-- `temperature_celsius()` - Read temperature in °C
-- `state_of_health()` - Read SOH percentage
+- `standby_current()` / `max_load_current()` - Additional current readings in mA
+- `temperature_celsius()` / `internal_temperature_celsius()` - Temperature in °C
+- `state_of_health()` / `state_of_health_status()` - SOH percentage / decoded status
 
 ### Status Methods
 
 - `is_battery_detected()` - Check if battery is connected
-- `is_charging()` - Check if battery is charging
-- `is_discharging()` - Check if battery is discharging
+- `is_charging()` / `is_discharging()` - Check charge direction
 - `is_full_charged()` - Check if battery is fully charged
+- `is_over_temp()` / `is_under_temp()` - Check temperature alarms
+- `needs_config_reload()` - Check whether Data Memory needs to be re-applied
 - `flags()` - Read all status flags
 
-### Control Methods
+### Control & Lifecycle Methods
 
-- `control_read(cmd)` - Send control subcommand and read response
-- `control_write(cmd)` - Send control subcommand
+- `control_read(cmd)` / `control_write(cmd)` - Send raw control subcommands
+- `control_status()` / `is_sealed()` - Read decoded `CONTROL_STATUS`
 - `firmware_version()` - Read firmware version
-- `chemistry_id()` - Read chemistry ID
-- `seal()` - Enter SEALED mode
-- `unseal()` - Exit SEALED mode
-- `enter_config_mode()` - Enter CONFIG UPDATE mode
-- `exit_config_mode()` - Exit CONFIG UPDATE mode
+- `chemistry_id()` - Read chemistry ID (`ChemId::G1A`/`G1B`)
+- `seal()` / `unseal()` - Enter/exit SEALED mode
+- `enter_config_mode()` / `exit_config_mode()` / `exit_config(ConfigExit)` - CONFIG UPDATE mode control
+- `bat_insert()` / `bat_remove()` - Battery presence signaling
 - `set_hibernate()` / `clear_hibernate()` - Hibernate mode control
+- `shutdown_enable()` / `shutdown()` - Shutdown mode control
+- `reset()` / `soft_reset()` / `pulse_gpout()` - Device reset and GPOUT control
+
+### Configuration Methods
+
+- `read_battery_config()` - Read the current `BatteryConfig` from Data Memory (unsealed)
+- `apply_battery_config(config)` - Write a `BatteryConfig` while already in CONFIG UPDATE mode
+- `configure_battery(config, options, &mut delay)` / `configure_battery_default(config, options)` - Full unseal/apply/reseal workflow
+- `read_golden_snapshot()` / `write_golden_snapshot(snapshot, &mut delay)` - Back up/restore calibrated Data Memory
+- `read_data_memory_block()` / `write_data_memory_block()` / `read_data_memory_subclass()` / `write_data_memory_subclass()` - Raw block/subclass access
+- `learning_progress()` / `update_status()` / `qmax_cell_0()` / `delta_voltage_mv()` - Learning-cycle monitoring
 
 ## Features
 
@@ -146,11 +205,11 @@ Enable optional features in your `Cargo.toml`:
 
 ```toml
 [dependencies]
-bq27441 = { version = "0.1", features = ["async", "defmt-03"] }
+bq27441 = { version = "0.2", features = ["async", "defmt-03"] }
 ```
 
 Available features:
-- `async` - Enable async/await support
+- `async` - Enable async/await support (`Bq27441Async` and async config/golden/learning helpers)
 - `defmt-03` - Enable defmt logging
 - `embassy` - Enable both async and defmt (convenience feature)
 
